@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,15 +11,13 @@ import { Search, Shield, CheckCircle, XCircle, MapPin, FileText, ExternalLink } 
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const searchSchema = z.object({
-  maxWindPressure: z.number().min(1, "Wind pressure must be greater than 0"),
-  deckType: z.string().min(1, "Deck type is required"),
-  membraneType: z.string().optional(),
-  state: z.string().min(1, "State is required"),
-  requiresApproval: z.array(z.string()).optional(),
-});
-
-type SearchForm = z.infer<typeof searchSchema>;
+interface SearchForm {
+  maxWindPressure: number;
+  deckType: string;
+  membraneType?: string;
+  state: string;
+  requiresApproval?: string[];
+}
 
 interface RoofSystem {
   id: string;
@@ -83,7 +79,6 @@ export default function MaterialFinder() {
   const { toast } = useToast();
 
   const form = useForm<SearchForm>({
-    resolver: zodResolver(searchSchema),
     defaultValues: {
       maxWindPressure: 80,
       deckType: "",

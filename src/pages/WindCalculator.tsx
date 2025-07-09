@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,25 +12,21 @@ import { Calculator, Download, Save, Wind, Building, MapPin } from "lucide-react
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-const calculationSchema = z.object({
-  projectName: z.string().min(1, "Project name is required"),
-  buildingHeight: z.number().min(1, "Height must be greater than 0"),
-  buildingLength: z.number().min(1, "Length must be greater than 0"),
-  buildingWidth: z.number().min(1, "Width must be greater than 0"),
-  city: z.string().min(1, "City is required"),
-  state: z.string().min(1, "State is required"),
-  exposureCategory: z.enum(["B", "C", "D"], {
-    required_error: "Exposure category is required",
-  }),
-  roofType: z.string().min(1, "Roof type is required"),
-  deckType: z.string().min(1, "Deck type is required"),
-  asceEdition: z.string().min(1, "ASCE edition is required"),
-  topographicFactor: z.number().min(0.8).max(2.0),
-  directionalityFactor: z.number().min(0.8).max(1.0),
-  calculationMethod: z.enum(["Component", "MWFRS"]),
-});
-
-type CalculationForm = z.infer<typeof calculationSchema>;
+interface CalculationForm {
+  projectName: string;
+  buildingHeight: number;
+  buildingLength: number;
+  buildingWidth: number;
+  city: string;
+  state: string;
+  exposureCategory: "B" | "C" | "D";
+  roofType: string;
+  deckType: string;
+  asceEdition: string;
+  topographicFactor: number;
+  directionalityFactor: number;
+  calculationMethod: "Component" | "MWFRS";
+}
 
 interface CalculationResults {
   windSpeed: number;
@@ -79,7 +73,6 @@ export default function WindCalculator() {
   const { toast } = useToast();
 
   const form = useForm<CalculationForm>({
-    resolver: zodResolver(calculationSchema),
     defaultValues: {
       projectName: "",
       buildingHeight: 30,
