@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export default function MaterialFinder() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedState, setSelectedState] = useState("");
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
 
   const form = useForm<SearchForm>({
     defaultValues: {
@@ -90,7 +92,43 @@ export default function MaterialFinder() {
 
   useEffect(() => {
     loadRoofSystems();
-  }, []);
+    
+    // Pre-fill form with URL parameters if available
+    const maxWindPressure = searchParams.get('maxWindPressure');
+    const deckType = searchParams.get('deckType');
+    const state = searchParams.get('state');
+    
+    if (maxWindPressure || deckType || state) {
+      const updates: Partial<SearchForm> = {};
+      
+      if (maxWindPressure) {
+        updates.maxWindPressure = parseFloat(maxWindPressure);
+      }
+      if (deckType) {
+        updates.deckType = deckType;
+      }
+      if (state) {
+        updates.state = state;
+      }
+      
+      // Update form values
+      Object.entries(updates).forEach(([key, value]) => {
+        form.setValue(key as keyof SearchForm, value as any);
+      });
+      
+      // Automatically trigger search if we have required parameters
+      if (maxWindPressure && deckType && state) {
+        setTimeout(() => {
+          form.handleSubmit(searchSystems)();
+        }, 100);
+      }
+      
+      toast({
+        title: "Parameters Loaded",
+        description: "Search criteria pre-filled from calculation results",
+      });
+    }
+  }, [searchParams]);
 
   const loadRoofSystems = async () => {
     try {

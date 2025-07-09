@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Calculator, Download, Save, Wind, Building, MapPin } from "lucide-react";
+import { Calculator, Download, Save, Wind, Building, MapPin, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -71,6 +72,7 @@ export default function WindCalculator() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const form = useForm<CalculationForm>({
     defaultValues: {
@@ -230,6 +232,26 @@ export default function WindCalculator() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const findApprovedSystems = () => {
+    if (!results) return;
+    
+    const formData = form.getValues();
+    
+    // Navigate to MaterialFinder with pre-filled values
+    const searchParams = new URLSearchParams({
+      maxWindPressure: results.maxPressure.toString(),
+      deckType: formData.deckType,
+      state: formData.state,
+    });
+    
+    navigate(`/material-finder?${searchParams.toString()}`);
+    
+    toast({
+      title: "Searching Systems",
+      description: `Finding approved systems for ${results.maxPressure.toFixed(1)} psf`,
+    });
   };
 
   return (
@@ -591,20 +613,31 @@ export default function WindCalculator() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 pt-4">
+                <div className="space-y-3 pt-4">
                   <Button
-                    onClick={saveCalculation}
-                    disabled={isSaving}
-                    variant="outline"
+                    onClick={findApprovedSystems}
+                    className="w-full bg-gradient-engineering hover:opacity-90"
                     size="sm"
                   >
-                    <Save className="h-4 w-4 mr-1" />
-                    {isSaving ? "Saving..." : "Save"}
+                    <Search className="h-4 w-4 mr-2" />
+                    Find Approved Systems
                   </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-1" />
-                    Export
-                  </Button>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={saveCalculation}
+                      disabled={isSaving}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Save className="h-4 w-4 mr-1" />
+                      {isSaving ? "Saving..." : "Save"}
+                    </Button>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-1" />
+                      Export
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
