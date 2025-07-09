@@ -14,6 +14,192 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_agencies: {
+        Row: {
+          agency_name: string
+          contact_info: Json | null
+          created_at: string | null
+          id: string
+          jurisdiction_level: string
+          requirements: string | null
+          state: string | null
+          website: string | null
+        }
+        Insert: {
+          agency_name: string
+          contact_info?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction_level: string
+          requirements?: string | null
+          state?: string | null
+          website?: string | null
+        }
+        Update: {
+          agency_name?: string
+          contact_info?: Json | null
+          created_at?: string | null
+          id?: string
+          jurisdiction_level?: string
+          requirements?: string | null
+          state?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      asce_parameters: {
+        Row: {
+          created_at: string | null
+          edition: string
+          exposure_category: string
+          formula_variations: Json | null
+          height_range: string
+          id: string
+          kz_factor: number
+          pressure_coefficients: Json
+          state: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          edition: string
+          exposure_category: string
+          formula_variations?: Json | null
+          height_range: string
+          id?: string
+          kz_factor: number
+          pressure_coefficients: Json
+          state?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          edition?: string
+          exposure_category?: string
+          formula_variations?: Json | null
+          height_range?: string
+          id?: string
+          kz_factor?: number
+          pressure_coefficients?: Json
+          state?: string | null
+        }
+        Relationships: []
+      }
+      building_codes: {
+        Row: {
+          adoption_date: string | null
+          asce_edition: string
+          code_edition: string
+          created_at: string | null
+          id: string
+          modifications: Json | null
+          state: string
+          wind_speed_adjustments: Json | null
+        }
+        Insert: {
+          adoption_date?: string | null
+          asce_edition: string
+          code_edition: string
+          created_at?: string | null
+          id?: string
+          modifications?: Json | null
+          state: string
+          wind_speed_adjustments?: Json | null
+        }
+        Update: {
+          adoption_date?: string | null
+          asce_edition?: string
+          code_edition?: string
+          created_at?: string | null
+          id?: string
+          modifications?: Json | null
+          state?: string
+          wind_speed_adjustments?: Json | null
+        }
+        Relationships: []
+      }
+      calculations: {
+        Row: {
+          asce_edition: string
+          building_height: number
+          building_length: number | null
+          building_width: number | null
+          calculation_method: string
+          city: string
+          corner_pressure: number | null
+          created_at: string | null
+          deck_type: string
+          directionality_factor: number | null
+          exposure_category: string
+          field_pressure: number | null
+          id: string
+          input_parameters: Json
+          jurisdiction: string | null
+          max_pressure: number | null
+          perimeter_pressure: number | null
+          project_name: string
+          results: Json
+          roof_type: string
+          selected_systems: string[] | null
+          state: string
+          topographic_factor: number | null
+          updated_at: string | null
+          wind_speed: number
+        }
+        Insert: {
+          asce_edition: string
+          building_height: number
+          building_length?: number | null
+          building_width?: number | null
+          calculation_method: string
+          city: string
+          corner_pressure?: number | null
+          created_at?: string | null
+          deck_type: string
+          directionality_factor?: number | null
+          exposure_category: string
+          field_pressure?: number | null
+          id?: string
+          input_parameters: Json
+          jurisdiction?: string | null
+          max_pressure?: number | null
+          perimeter_pressure?: number | null
+          project_name: string
+          results: Json
+          roof_type: string
+          selected_systems?: string[] | null
+          state: string
+          topographic_factor?: number | null
+          updated_at?: string | null
+          wind_speed: number
+        }
+        Update: {
+          asce_edition?: string
+          building_height?: number
+          building_length?: number | null
+          building_width?: number | null
+          calculation_method?: string
+          city?: string
+          corner_pressure?: number | null
+          created_at?: string | null
+          deck_type?: string
+          directionality_factor?: number | null
+          exposure_category?: string
+          field_pressure?: number | null
+          id?: string
+          input_parameters?: Json
+          jurisdiction?: string | null
+          max_pressure?: number | null
+          perimeter_pressure?: number | null
+          project_name?: string
+          results?: Json
+          roof_type?: string
+          selected_systems?: string[] | null
+          state?: string
+          topographic_factor?: number | null
+          updated_at?: string | null
+          wind_speed?: number
+        }
+        Relationships: []
+      }
       daily_stats: {
         Row: {
           avg_processing_time_seconds: number | null
@@ -38,6 +224,42 @@ export type Database = {
           date?: string | null
           id?: string
           total_projects?: number | null
+        }
+        Relationships: []
+      }
+      local_jurisdictions: {
+        Row: {
+          city: string | null
+          contact_info: Json | null
+          county: string | null
+          created_at: string | null
+          id: string
+          jurisdiction_name: string
+          requirements: Json | null
+          state: string
+          website: string | null
+        }
+        Insert: {
+          city?: string | null
+          contact_info?: Json | null
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          jurisdiction_name: string
+          requirements?: Json | null
+          state: string
+          website?: string | null
+        }
+        Update: {
+          city?: string | null
+          contact_info?: Json | null
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          jurisdiction_name?: string
+          requirements?: Json | null
+          state?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -199,6 +421,172 @@ export type Database = {
           wind_pressure?: number | null
           wind_zone?: string | null
           wood_nailers_present?: string | null
+        }
+        Relationships: []
+      }
+      roof_systems: {
+        Row: {
+          created_at: string | null
+          deck_types: string[]
+          description: string | null
+          fastener_pattern: string | null
+          id: string
+          manufacturer: string
+          max_wind_pressure: number
+          membrane_type: string
+          safety_factor: number | null
+          system_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deck_types: string[]
+          description?: string | null
+          fastener_pattern?: string | null
+          id?: string
+          manufacturer: string
+          max_wind_pressure: number
+          membrane_type: string
+          safety_factor?: number | null
+          system_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deck_types?: string[]
+          description?: string | null
+          fastener_pattern?: string | null
+          id?: string
+          manufacturer?: string
+          max_wind_pressure?: number
+          membrane_type?: string
+          safety_factor?: number | null
+          system_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      state_approvals: {
+        Row: {
+          approval_agency: string
+          approval_date: string | null
+          approval_number: string
+          created_at: string | null
+          document_url: string | null
+          expiration_date: string | null
+          id: string
+          state: string
+          status: string | null
+          system_id: string | null
+        }
+        Insert: {
+          approval_agency: string
+          approval_date?: string | null
+          approval_number: string
+          created_at?: string | null
+          document_url?: string | null
+          expiration_date?: string | null
+          id?: string
+          state: string
+          status?: string | null
+          system_id?: string | null
+        }
+        Update: {
+          approval_agency?: string
+          approval_date?: string | null
+          approval_number?: string
+          created_at?: string | null
+          document_url?: string | null
+          expiration_date?: string | null
+          id?: string
+          state?: string
+          status?: string | null
+          system_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "state_approvals_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "roof_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_components: {
+        Row: {
+          approval_numbers: Json | null
+          component_name: string
+          component_type: string
+          created_at: string | null
+          id: string
+          manufacturer: string | null
+          specifications: Json | null
+          system_id: string | null
+        }
+        Insert: {
+          approval_numbers?: Json | null
+          component_name: string
+          component_type: string
+          created_at?: string | null
+          id?: string
+          manufacturer?: string | null
+          specifications?: Json | null
+          system_id?: string | null
+        }
+        Update: {
+          approval_numbers?: Json | null
+          component_name?: string
+          component_type?: string
+          created_at?: string | null
+          id?: string
+          manufacturer?: string | null
+          specifications?: Json | null
+          system_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_components_system_id_fkey"
+            columns: ["system_id"]
+            isOneToOne: false
+            referencedRelation: "roof_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wind_speeds: {
+        Row: {
+          asce_edition: string
+          city: string
+          county: string | null
+          created_at: string | null
+          id: string
+          local_modifications: Json | null
+          state: string
+          updated_at: string | null
+          wind_speed: number
+        }
+        Insert: {
+          asce_edition?: string
+          city: string
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          local_modifications?: Json | null
+          state: string
+          updated_at?: string | null
+          wind_speed: number
+        }
+        Update: {
+          asce_edition?: string
+          city?: string
+          county?: string | null
+          created_at?: string | null
+          id?: string
+          local_modifications?: Json | null
+          state?: string
+          updated_at?: string | null
+          wind_speed?: number
         }
         Relationships: []
       }

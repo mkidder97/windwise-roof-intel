@@ -2,41 +2,79 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* Professional ASCE Wind Pressure Calculator Design System
+All colors MUST be HSL for engineering application aesthetic
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Core background colors - Professional engineering theme */
+    --background: 210 20% 98%;
+    --foreground: 210 20% 10%;
 
+    /* Card and surface colors */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 210 20% 10%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Engineering Blue - Professional primary color */
+    --primary: 210 100% 23%;
+    --primary-foreground: 0 0% 98%;
+    --primary-hover: 210 100% 20%;
+    --primary-light: 210 100% 92%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Engineering Gray - Professional secondary */
+    --secondary: 210 16% 88%;
+    --secondary-foreground: 210 20% 15%;
+    --secondary-hover: 210 16% 82%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Technical muted colors */
+    --muted: 210 16% 94%;
+    --muted-foreground: 210 20% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Success Green - For compatible systems */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+    --success-light: 142 76% 95%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    /* Engineering Warning - For attention states */
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 98%;
+    --warning-light: 45 93% 95%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Technical accent colors */
+    --accent: 210 16% 94%;
+    --accent-foreground: 210 20% 15%;
 
-    --radius: 0.5rem;
+    /* Destructive/Error states */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Professional borders and inputs */
+    --border: 210 20% 82%;
+    --input: 210 20% 96%;
+    --ring: 210 100% 23%;
+
+    /* Technical data colors */
+    --data-pressure: 210 100% 45%;
+    --data-wind: 200 100% 40%;
+    --data-safety: 142 76% 36%;
+    --data-critical: 0 84% 60%;
+
+    /* Professional gradients */
+    --gradient-engineering: linear-gradient(135deg, hsl(210 100% 23%), hsl(210 100% 30%));
+    --gradient-data: linear-gradient(90deg, hsl(210 100% 92%), hsl(210 100% 96%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 76% 42%));
+
+    /* Professional shadows */
+    --shadow-engineering: 0 4px 20px -2px hsl(210 100% 23% / 0.15);
+    --shadow-card: 0 2px 8px -1px hsl(210 20% 10% / 0.1);
+    --shadow-data: 0 1px 4px hsl(210 20% 10% / 0.08);
+
+    /* Geometric spacing */
+    --radius: 0.375rem;
 
     --sidebar-background: 0 0% 98%;
 
