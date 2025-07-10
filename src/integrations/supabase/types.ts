@@ -158,6 +158,7 @@ export type Database = {
           state: string
           topographic_factor: number | null
           updated_at: string | null
+          user_id: string | null
           wind_speed: number
         }
         Insert: {
@@ -189,6 +190,7 @@ export type Database = {
           state: string
           topographic_factor?: number | null
           updated_at?: string | null
+          user_id?: string | null
           wind_speed: number
         }
         Update: {
@@ -220,6 +222,7 @@ export type Database = {
           state?: string
           topographic_factor?: number | null
           updated_at?: string | null
+          user_id?: string | null
           wind_speed?: number
         }
         Relationships: []
@@ -789,6 +792,9 @@ export type Database = {
           safety_factor: number | null
           system_name: string
           updated_at: string | null
+          verification_date: string | null
+          verification_notes: string | null
+          verified_by_engineer: boolean | null
         }
         Insert: {
           created_at?: string | null
@@ -802,6 +808,9 @@ export type Database = {
           safety_factor?: number | null
           system_name: string
           updated_at?: string | null
+          verification_date?: string | null
+          verification_notes?: string | null
+          verified_by_engineer?: boolean | null
         }
         Update: {
           created_at?: string | null
@@ -815,6 +824,9 @@ export type Database = {
           safety_factor?: number | null
           system_name?: string
           updated_at?: string | null
+          verification_date?: string | null
+          verification_notes?: string | null
+          verified_by_engineer?: boolean | null
         }
         Relationships: []
       }
@@ -1069,6 +1081,7 @@ export type Database = {
           created_at: string | null
           id: string
           local_modifications: Json | null
+          risk_category: string | null
           state: string
           updated_at: string | null
           wind_speed: number
@@ -1080,6 +1093,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           local_modifications?: Json | null
+          risk_category?: string | null
           state: string
           updated_at?: string | null
           wind_speed: number
@@ -1091,6 +1105,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           local_modifications?: Json | null
+          risk_category?: string | null
           state?: string
           updated_at?: string | null
           wind_speed?: number
