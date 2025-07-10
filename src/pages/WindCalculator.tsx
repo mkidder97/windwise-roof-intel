@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Download, Save, Wind, Building, MapPin, Search, Shield, Award, CheckCircle, AlertTriangle, FileText, Camera, History, TrendingUp, BookOpen, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { CADUploadManager } from "@/components/CADUploadManager";
 
 interface ProfessionalCalculationForm {
   // Basic project information
@@ -1087,9 +1088,49 @@ export default function WindCalculator() {
                              </FormItem>
                            )}
                          />
-                       </div>
+                        </div>
 
-                       <Separator />
+                        <Separator />
+
+                        {/* CAD Upload Section */}
+                        <div className="space-y-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <FileText className="h-4 w-4 text-primary" />
+                            <h3 className="font-semibold">Building Geometry</h3>
+                          </div>
+                          
+                          <CADUploadManager
+                            onGeometryExtracted={(geometry, geometryId) => {
+                              // Update form with extracted geometry data
+                              if (geometry.dimensions.length) {
+                                form.setValue("buildingLength", geometry.dimensions.length);
+                              }
+                              if (geometry.dimensions.width) {
+                                form.setValue("buildingWidth", geometry.dimensions.width);
+                              }
+                              if (geometry.dimensions.height) {
+                                form.setValue("buildingHeight", geometry.dimensions.height);
+                              }
+                              if (geometry.total_area && geometry.total_area > 0) {
+                                form.setValue("effectiveWindArea", geometry.total_area);
+                              }
+                              
+                              toast({
+                                title: "Geometry Applied",
+                                description: "Building dimensions updated from CAD file",
+                              });
+                            }}
+                            onError={(error) => {
+                              toast({
+                                title: "CAD Upload Error",
+                                description: error,
+                                variant: "destructive",
+                              });
+                            }}
+                          />
+                        </div>
+
+                        <Separator />
 
                        {/* Building Classification Section (from Professional) */}
                        <div className="space-y-4">
