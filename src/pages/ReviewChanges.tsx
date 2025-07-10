@@ -171,18 +171,67 @@ export default function ReviewChanges() {
     if (!change) return;
 
     try {
-      // This would implement the logic to update roof_systems table
-      // based on the approved changes
       console.log('Integrating approved change:', change);
       
-      // Example integration logic:
-      if (change.change_type === 'spec_change') {
-        // Update roof system specifications
-      } else if (change.change_type === 'new_product') {
-        // Add new roof system to database
+      switch (change.change_type) {
+        case 'new_product':
+          // Add new product to roof_systems table
+          const productData = change.change_data as any;
+          const { error: insertError } = await supabase
+            .from('roof_systems')
+            .insert({
+              system_name: productData.product_name,
+              manufacturer: productData.manufacturer,
+              membrane_type: productData.membrane_type || 'TPO',
+              max_wind_pressure: parseInt(productData.wind_rating?.replace(/\D/g, '') || '0') || 100,
+              deck_types: ['concrete', 'steel', 'wood'],
+              description: `Automatically added from monitoring: ${productData.product_name}`,
+              verification_notes: `Added via automated monitoring on ${new Date().toLocaleDateString()}`
+            });
+          if (insertError) throw insertError;
+          
+          toast({
+            title: "Product Added",
+            description: `${productData.product_name} has been added to the system.`,
+          });
+          break;
+          
+        case 'spec_change':
+          // Update existing product specifications
+          const specData = change.change_data as any;
+          if (specData.field === 'wind_rating') {
+            const windRating = parseInt(specData.new_value?.replace(/\D/g, '') || '0');
+            const { error: updateError } = await supabase
+              .from('roof_systems')
+              .update({ 
+                max_wind_pressure: windRating,
+                verification_notes: `Wind rating updated via monitoring on ${new Date().toLocaleDateString()}`
+              })
+              .ilike('system_name', `%${specData.product_name}%`);
+            if (updateError) throw updateError;
+            
+            toast({
+              title: "Specification Updated",
+              description: `${specData.product_name} wind rating updated to ${specData.new_value}.`,
+            });
+          }
+          break;
+          
+        case 'approval_update':
+          // Update approval information
+          console.log('Approval updates require manual review of state_approvals table');
+          break;
+          
+        default:
+          console.log('Change type does not require database integration:', change.change_type);
       }
     } catch (error) {
       console.error('Error integrating change:', error);
+      toast({
+        title: "Integration Error",
+        description: "Failed to integrate approved change into system.",
+        variant: "destructive",
+      });
     }
   };
 
