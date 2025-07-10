@@ -161,20 +161,39 @@ export default function MaterialFinder() {
   }, [searchParams]);
 
   const loadRoofSystems = async () => {
+    console.log('Loading roof systems...');
+    
     try {
       const { data: systemsData, error: systemsError } = await supabase
         .from('roof_systems')
         .select('*');
 
-      if (systemsError) throw systemsError;
+      console.log('Roof systems query result:', { systemsData, systemsError });
+
+      if (systemsError) {
+        console.error('Roof systems error:', systemsError);
+        throw systemsError;
+      }
+
+      if (!systemsData || systemsData.length === 0) {
+        console.warn('No roof systems found in database');
+        setSystems([]);
+        return;
+      }
+
+      console.log(`Found ${systemsData.length} roof systems`);
 
       // Get approvals for each system
       const systemsWithApprovals = await Promise.all(
-        (systemsData || []).map(async (system) => {
-          const { data: approvals } = await supabase
+        systemsData.map(async (system) => {
+          const { data: approvals, error: approvalsError } = await supabase
             .from('state_approvals')
             .select('*')
             .eq('system_id', system.id);
+
+          if (approvalsError) {
+            console.error(`Error loading approvals for system ${system.id}:`, approvalsError);
+          }
 
           // Calculate quality indicators
           const expiredApprovalsCount = approvals?.filter(a => 
@@ -200,11 +219,19 @@ export default function MaterialFinder() {
         })
       );
 
+      console.log(`Loaded ${systemsWithApprovals.length} systems with approvals`);
       setSystems(systemsWithApprovals);
-    } catch (error) {
+
       toast({
-        title: "Error",
-        description: "Failed to load roof systems.",
+        title: "Systems Loaded",
+        description: `Loaded ${systemsWithApprovals.length} roofing systems successfully.`,
+      });
+
+    } catch (error) {
+      console.error('Error loading roof systems:', error);
+      toast({
+        title: "Database Error",
+        description: `Failed to load roof systems: ${error.message}`,
         variant: "destructive",
       });
     }

@@ -232,6 +232,8 @@ export default function WindCalculator() {
 
   const loadCalculationHistory = async () => {
     setIsLoadingHistory(true);
+    console.log('Loading calculation history...');
+    
     try {
       const { data, error } = await supabase
         .from('calculations')
@@ -239,10 +241,23 @@ export default function WindCalculator() {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      console.log('Calculation history query result:', { data, error });
+
+      if (error) {
+        console.error('Error loading calculation history:', error);
+        throw error;
+      }
+      
       setSavedCalculations(data || []);
+      console.log(`Loaded ${data?.length || 0} saved calculations`);
+      
     } catch (error) {
       console.error('Error loading calculation history:', error);
+      toast({
+        title: "Error",
+        description: `Failed to load calculation history: ${error.message}`,
+        variant: "destructive",
+      });
     } finally {
       setIsLoadingHistory(false);
     }
@@ -254,7 +269,10 @@ export default function WindCalculator() {
     
     try {
       if (data.professionalMode) {
-        // Use professional edge function
+        // Use professional edge function - first get real wind speed
+        const realWindSpeed = data.customWindSpeed || await lookupWindSpeed(data.city, data.state, data.asceEdition);
+        console.log(`Using wind speed: ${realWindSpeed} mph for professional calculation`);
+        
         const { data: result, error } = await supabase.functions.invoke('calculate-professional-wind', {
           body: {
             buildingHeight: data.buildingHeight,
@@ -263,7 +281,7 @@ export default function WindCalculator() {
             city: data.city,
             state: data.state,
             asceEdition: data.asceEdition,
-            windSpeed: 120, // Get from wind_speeds table in production
+            windSpeed: realWindSpeed,
             exposureCategory: data.exposureCategory,
             buildingClassification: data.buildingClassification,
             riskCategory: data.riskCategory,
@@ -426,13 +444,18 @@ export default function WindCalculator() {
   };
 
   const saveCalculation = async () => {
-    if (!results) return;
+    if (!results) {
+      console.error('No calculation results to save');
+      return;
+    }
     
     setIsSaving(true);
     const formData = form.getValues();
     
+    console.log('Saving calculation...', { formData, results });
+    
     try {
-      const { error } = await supabase.from('calculations').insert({
+      const calculationData = {
         project_name: formData.projectName,
         building_height: formData.buildingHeight,
         building_length: formData.buildingLength,
@@ -457,18 +480,37 @@ export default function WindCalculator() {
         area_dependent_coefficients: results.professionalAccuracy,
         input_parameters: formData as any,
         results: results as any,
-      });
+        user_id: null, // Allow anonymous saves
+      };
 
-      if (error) throw error;
+      console.log('Inserting calculation data:', calculationData);
+
+      const { data, error } = await supabase.from('calculations').insert(calculationData).select();
+
+      console.log('Calculation save result:', { data, error });
+
+      if (error) {
+        console.error('Save calculation error:', error);
+        throw error;
+      }
+
+      console.log('Calculation saved successfully');
 
       toast({
         title: "Calculation Saved",
-        description: results.professionalAccuracy ? "Professional calculation saved successfully." : "Your calculation has been saved successfully.",
+        description: results.professionalAccuracy 
+          ? "Professional calculation saved successfully." 
+          : "Your calculation has been saved successfully.",
       });
+
+      // Reload calculation history
+      loadCalculationHistory();
+
     } catch (error) {
+      console.error('Failed to save calculation:', error);
       toast({
-        title: "Error",
-        description: "Failed to save calculation.",
+        title: "Save Error",
+        description: `Failed to save calculation: ${error.message}`,
         variant: "destructive",
       });
     } finally {
