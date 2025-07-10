@@ -137,6 +137,7 @@ export default function WindCalculator() {
   const [isSaving, setIsSaving] = useState(false);
   const [savedCalculations, setSavedCalculations] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState("basic");
   const [windSpeedValidation, setWindSpeedValidation] = useState<{
     isValid: boolean;
     source: string;
@@ -484,6 +485,20 @@ export default function WindCalculator() {
     });
   };
 
+  const onBasicCalculate = async (data: ProfessionalCalculationForm) => {
+    // Set basic calculation mode
+    const basicData = { ...data, professionalMode: false };
+    await onSubmit(basicData);
+  };
+
+  const onContinueToProfessional = () => {
+    setActiveTab("professional");
+    toast({
+      title: "Advanced to Professional",
+      description: "Basic parameters preserved. Add professional features below.",
+    });
+  };
+
   const saveCalculation = async () => {
     if (!results) {
       console.error('❌ No calculation results to save');
@@ -719,7 +734,7 @@ export default function WindCalculator() {
                    <Separator />
 
                    {/* Professional Tabs Interface */}
-                   <Tabs defaultValue="basic" className="w-full">
+                   <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                      <TabsList className="grid w-full grid-cols-3">
                        <TabsTrigger value="basic">
                          <div className="text-center">
@@ -741,14 +756,14 @@ export default function WindCalculator() {
                        </TabsTrigger>
                      </TabsList>
                      
-                     <TabsContent value="basic" className="space-y-4">
-                       {/* Add description */}
-                       <div className="p-3 bg-muted/50 rounded-lg mb-4">
-                         <p className="text-sm text-muted-foreground">
-                           <strong>Quick calculations</strong> using standard parameters and database wind speeds. 
-                           For detailed site analysis and PE-grade accuracy, use the Professional tab.
-                         </p>
-                       </div>
+        <TabsContent value="basic" className="space-y-4">
+          {/* Add description */}
+          <div className="p-3 bg-muted/50 rounded-lg mb-4">
+            <p className="text-sm text-muted-foreground">
+              <strong>Quick calculations</strong> using standard parameters and database wind speeds. 
+              For detailed site analysis and PE-grade accuracy, use the Professional tab.
+            </p>
+          </div>
                        
                        {/* Technical Parameters */}
                        <div className="space-y-4">
@@ -905,19 +920,55 @@ export default function WindCalculator() {
                             <FormMessage />
                           </FormItem>
                         )}
-                      />
-                         </div>
-                       </div>
-                     </TabsContent>
+                       />
+                          </div>
+                          
+                          {/* Progressive workflow buttons */}
+                          <div className="flex gap-3 pt-4">
+                            <Button 
+                              type="button"
+                              onClick={form.handleSubmit(onBasicCalculate)}
+                              className="flex-1" 
+                              disabled={isCalculating}
+                            >
+                              {isCalculating ? "Calculating..." : "Calculate Basic Pressures"}
+                            </Button>
+                            
+                            <Button 
+                              type="button"
+                              variant="outline" 
+                              className="flex-1"
+                              onClick={onContinueToProfessional}
+                            >
+                              Continue to Professional →
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
 
-                     <TabsContent value="professional" className="space-y-4">
-                       {/* Add description */}
-                       <div className="p-3 bg-primary/10 rounded-lg mb-4 border border-primary/20">
-                         <p className="text-sm text-muted-foreground">
-                           <strong>Professional-grade calculations</strong> with site-specific conditions, 
-                           building classification analysis, and PE-sealable accuracy for final roof designs.
-                         </p>
-                       </div>
+        <TabsContent value="professional" className="space-y-4">
+          {/* Summary of Basic Parameters */}
+          <div className="p-4 bg-muted/50 rounded-lg mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold">Basic Parameters</h4>
+              <Button variant="ghost" size="sm" onClick={() => setActiveTab("basic")}>
+                ← Edit Basic Parameters
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div>Building: {form.watch("buildingHeight")}ft × {form.watch("buildingLength")}ft × {form.watch("buildingWidth")}ft</div>
+              <div>Location: {form.watch("city")}, {form.watch("state")}</div>
+              <div>ASCE: {form.watch("asceEdition")} | Exposure: {form.watch("exposureCategory")}</div>
+            </div>
+          </div>
+
+          {/* Add description */}
+          <div className="p-3 bg-primary/10 rounded-lg mb-4 border border-primary/20">
+            <p className="text-sm text-muted-foreground">
+              <strong>Professional-grade calculations</strong> with site-specific conditions, 
+              building classification analysis, and PE-sealable accuracy for final roof designs.
+            </p>
+          </div>
                        
                        {/* Site Conditions Section (from Advanced) */}
                        <div className="space-y-4">
@@ -1176,11 +1227,21 @@ export default function WindCalculator() {
                                </FormItem>
                              )}
                            />
-                         )}
-                       </div>
-                     </TabsContent>
+                          )}
+                          
+                          {/* Professional tab button */}
+                          <div className="flex gap-2 pt-4">
+                            <Button type="submit" className="flex-1" disabled={isCalculating}>
+                              {isCalculating ? "Calculating..." : "Calculate Professional Pressures"}
+                            </Button>
+                            <Button type="button" variant="outline" onClick={() => form.reset()}>
+                              Reset
+                            </Button>
+                          </div>
+                        </div>
+                      </TabsContent>
 
-                     <TabsContent value="project" className="space-y-4">
+                      <TabsContent value="project" className="space-y-4">
                        {/* Project Management */}
                        <div className="space-y-4">
                          <div className="flex items-center gap-2 mb-2">
