@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
+import DatabaseTest from '@/components/DatabaseTest';
 
 interface DashboardStats {
   totalCalculations: number;
@@ -173,6 +174,11 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Database Test */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <DatabaseTest />
       </div>
 
       {/* Statistics */}
