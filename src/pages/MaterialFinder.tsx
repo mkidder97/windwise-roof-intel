@@ -8,9 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Shield, CheckCircle, XCircle, MapPin, FileText, ExternalLink } from "lucide-react";
+import { Search, Shield, CheckCircle, XCircle, MapPin, FileText, ExternalLink, Download, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from 'jspdf';
 
 interface SearchForm {
   maxWindPressure: number;
@@ -220,6 +221,57 @@ export default function MaterialFinder() {
     return approval;
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const requiredPressure = form.getValues().maxWindPressure;
+    
+    // Header
+    doc.setFontSize(18);
+    doc.text('Roofing System Compatibility Report', 20, 20);
+    
+    doc.setFontSize(12);
+    doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
+    doc.text(`Required Wind Pressure: ${requiredPressure} psf`, 20, 40);
+    doc.text(`Deck Type: ${form.getValues().deckType}`, 20, 50);
+    doc.text(`State: ${selectedState || 'Not specified'}`, 20, 60);
+    
+    // Systems
+    let yPosition = 80;
+    doc.setFontSize(14);
+    doc.text(`Compatible Systems (${filteredSystems.length} found):`, 20, yPosition);
+    
+    filteredSystems.forEach((system, index) => {
+      yPosition += 20;
+      
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      const safetyFactor = getSafetyFactor(system.max_wind_pressure, requiredPressure);
+      const approval = getApprovalStatus(system, selectedState);
+      
+      doc.setFontSize(12);
+      doc.text(`${index + 1}. ${system.system_name} - ${system.manufacturer}`, 20, yPosition);
+      doc.text(`   Max Pressure: ${system.max_wind_pressure} psf | Safety Factor: ${safetyFactor.toFixed(2)}`, 25, yPosition + 10);
+      doc.text(`   Membrane: ${system.membrane_type} | Decks: ${system.deck_types.join(', ')}`, 25, yPosition + 20);
+      
+      if (approval) {
+        doc.text(`   ${selectedState} Approved: ${approval.approval_number}`, 25, yPosition + 30);
+        yPosition += 30;
+      } else {
+        yPosition += 20;
+      }
+    });
+    
+    doc.save(`roofing-systems-${Date.now()}.pdf`);
+    
+    toast({
+      title: "Export Complete",
+      description: "PDF specification sheet has been downloaded",
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -341,13 +393,36 @@ export default function MaterialFinder() {
         <div className="lg:col-span-3">
           {filteredSystems.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">
-                  Compatible Systems ({filteredSystems.length})
-                </h2>
-                <Badge variant="outline" className="bg-success-light text-success">
-                  {filteredSystems.length} matches found
-                </Badge>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-semibold">
+                    Compatible Systems ({filteredSystems.length})
+                  </h2>
+                  <Badge variant="outline" className="bg-success-light text-success">
+                    {filteredSystems.length} matches found
+                  </Badge>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    onClick={exportToPDF}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export PDF
+                  </Button>
+                  <Button
+                    onClick={() => window.print()}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </Button>
+                </div>
               </div>
 
               <div className="grid gap-4">
