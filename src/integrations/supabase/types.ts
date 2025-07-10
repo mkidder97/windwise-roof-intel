@@ -128,10 +128,86 @@ export type Database = {
         }
         Relationships: []
       }
+      building_geometries: {
+        Row: {
+          cad_file_url: string | null
+          created_at: string
+          dimensions: Json
+          id: string
+          name: string
+          perimeter_length: number | null
+          shape_type: string
+          total_area: number | null
+          updated_at: string
+          zone_calculations: Json | null
+        }
+        Insert: {
+          cad_file_url?: string | null
+          created_at?: string
+          dimensions?: Json
+          id?: string
+          name: string
+          perimeter_length?: number | null
+          shape_type: string
+          total_area?: number | null
+          updated_at?: string
+          zone_calculations?: Json | null
+        }
+        Update: {
+          cad_file_url?: string | null
+          created_at?: string
+          dimensions?: Json
+          id?: string
+          name?: string
+          perimeter_length?: number | null
+          shape_type?: string
+          total_area?: number | null
+          updated_at?: string
+          zone_calculations?: Json | null
+        }
+        Relationships: []
+      }
+      building_templates: {
+        Row: {
+          building_type: string
+          created_at: string
+          description: string | null
+          geometry_data: Json
+          id: string
+          is_active: boolean
+          template_name: string
+          typical_wind_zones: Json | null
+          updated_at: string
+        }
+        Insert: {
+          building_type: string
+          created_at?: string
+          description?: string | null
+          geometry_data?: Json
+          id?: string
+          is_active?: boolean
+          template_name: string
+          typical_wind_zones?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          building_type?: string
+          created_at?: string
+          description?: string | null
+          geometry_data?: Json
+          id?: string
+          is_active?: boolean
+          template_name?: string
+          typical_wind_zones?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calculations: {
         Row: {
           area_dependent_coefficients: boolean | null
           asce_edition: string
+          building_geometry_id: string | null
           building_height: number
           building_length: number | null
           building_width: number | null
@@ -141,8 +217,10 @@ export type Database = {
           created_at: string | null
           deck_type: string
           directionality_factor: number | null
+          effective_areas_calculated: Json | null
           exposure_category: string
           field_pressure: number | null
+          geometry_complexity_level: string | null
           id: string
           input_parameters: Json
           internal_pressure_included: boolean | null
@@ -160,10 +238,12 @@ export type Database = {
           updated_at: string | null
           user_id: string | null
           wind_speed: number
+          zone_specific_pressures: Json | null
         }
         Insert: {
           area_dependent_coefficients?: boolean | null
           asce_edition: string
+          building_geometry_id?: string | null
           building_height: number
           building_length?: number | null
           building_width?: number | null
@@ -173,8 +253,10 @@ export type Database = {
           created_at?: string | null
           deck_type: string
           directionality_factor?: number | null
+          effective_areas_calculated?: Json | null
           exposure_category: string
           field_pressure?: number | null
+          geometry_complexity_level?: string | null
           id?: string
           input_parameters: Json
           internal_pressure_included?: boolean | null
@@ -192,10 +274,12 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           wind_speed: number
+          zone_specific_pressures?: Json | null
         }
         Update: {
           area_dependent_coefficients?: boolean | null
           asce_edition?: string
+          building_geometry_id?: string | null
           building_height?: number
           building_length?: number | null
           building_width?: number | null
@@ -205,8 +289,10 @@ export type Database = {
           created_at?: string | null
           deck_type?: string
           directionality_factor?: number | null
+          effective_areas_calculated?: Json | null
           exposure_category?: string
           field_pressure?: number | null
+          geometry_complexity_level?: string | null
           id?: string
           input_parameters?: Json
           internal_pressure_included?: boolean | null
@@ -224,8 +310,17 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
           wind_speed?: number
+          zone_specific_pressures?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calculations_building_geometry_id_fkey"
+            columns: ["building_geometry_id"]
+            isOneToOne: false
+            referencedRelation: "building_geometries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       change_detection_log: {
         Row: {
@@ -312,6 +407,56 @@ export type Database = {
           total_projects?: number | null
         }
         Relationships: []
+      }
+      effective_wind_areas: {
+        Row: {
+          calculation_id: string | null
+          created_at: string
+          design_pressure: number | null
+          effective_area: number | null
+          element_type: string
+          id: string
+          pressure_coefficient: number | null
+          spacing_x: number | null
+          spacing_y: number | null
+          updated_at: string
+          zone_location: string
+        }
+        Insert: {
+          calculation_id?: string | null
+          created_at?: string
+          design_pressure?: number | null
+          effective_area?: number | null
+          element_type: string
+          id?: string
+          pressure_coefficient?: number | null
+          spacing_x?: number | null
+          spacing_y?: number | null
+          updated_at?: string
+          zone_location: string
+        }
+        Update: {
+          calculation_id?: string | null
+          created_at?: string
+          design_pressure?: number | null
+          effective_area?: number | null
+          element_type?: string
+          id?: string
+          pressure_coefficient?: number | null
+          spacing_x?: number | null
+          spacing_y?: number | null
+          updated_at?: string
+          zone_location?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "effective_wind_areas_calculation_id_fkey"
+            columns: ["calculation_id"]
+            isOneToOne: false
+            referencedRelation: "calculations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       engineering_validations: {
         Row: {
