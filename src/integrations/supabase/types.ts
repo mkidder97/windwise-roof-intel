@@ -1114,7 +1114,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      system_health: {
+        Row: {
+          max_wind_speed: number | null
+          min_wind_speed: number | null
+          record_count: number | null
+          table_name: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       validate_data_quality: {
