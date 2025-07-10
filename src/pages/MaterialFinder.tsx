@@ -19,6 +19,13 @@ interface SearchForm {
   membraneType?: string;
   state: string;
   requiresApproval?: string[];
+  // Advanced search criteria
+  manufacturer?: string;
+  minSafetyFactor?: number;
+  verificationStatus?: string;
+  approvalExpiration?: string;
+  sortBy?: string;
+  showExpiredApprovals?: boolean;
 }
 
 interface RoofSystem {
@@ -32,6 +39,16 @@ interface RoofSystem {
   safety_factor: number;
   description: string;
   approvals: StateApproval[];
+  // Professional features
+  verified_by_engineer?: boolean;
+  verification_date?: string;
+  verification_notes?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Quality indicators
+  qualityScore?: number;
+  expiredApprovalsCount?: number;
+  needsVerificationReview?: boolean;
 }
 
 interface StateApproval {
@@ -78,6 +95,10 @@ export default function MaterialFinder() {
   const [filteredSystems, setFilteredSystems] = useState<RoofSystem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedState, setSelectedState] = useState("");
+  const [savedSearches, setSavedSearches] = useState<any[]>([]);
+  const [bookmarkedSystems, setBookmarkedSystems] = useState<string[]>([]);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [qualityMetrics, setQualityMetrics] = useState<any>(null);
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
 
@@ -88,11 +109,19 @@ export default function MaterialFinder() {
       membraneType: "",
       state: "",
       requiresApproval: [],
+      manufacturer: "",
+      minSafetyFactor: 1.0,
+      verificationStatus: "",
+      approvalExpiration: "",
+      sortBy: "safety_factor",
+      showExpiredApprovals: false,
     },
   });
 
   useEffect(() => {
     loadRoofSystems();
+    loadQualityMetrics();
+    loadSavedSearches();
     
     // Pre-fill form with URL parameters if available
     const maxWindPressure = searchParams.get('maxWindPressure');
@@ -147,9 +176,26 @@ export default function MaterialFinder() {
             .select('*')
             .eq('system_id', system.id);
 
+          // Calculate quality indicators
+          const expiredApprovalsCount = approvals?.filter(a => 
+            new Date(a.expiration_date) < new Date()
+          ).length || 0;
+
+          const needsVerificationReview = 
+            !system.verified_by_engineer || 
+            (system.verification_date && 
+             new Date(system.verification_date) < new Date(Date.now() - 365 * 24 * 60 * 60 * 1000));
+
+          const qualityScore = Math.min(100, 
+            100 - (expiredApprovalsCount * 10) - (needsVerificationReview ? 20 : 0)
+          );
+
           return {
             ...system,
-            approvals: approvals || []
+            approvals: approvals || [],
+            expiredApprovalsCount,
+            needsVerificationReview,
+            qualityScore
           };
         })
       );
@@ -161,6 +207,39 @@ export default function MaterialFinder() {
         description: "Failed to load roof systems.",
         variant: "destructive",
       });
+    }
+  };
+
+  const loadQualityMetrics = async () => {
+    try {
+      // Calculate overall data quality metrics
+      const totalSystems = systems.length;
+      const verifiedSystems = systems.filter(s => s.verified_by_engineer).length;
+      const systemsWithExpiredApprovals = systems.filter(s => 
+        s.expiredApprovalsCount && s.expiredApprovalsCount > 0
+      ).length;
+      
+      setQualityMetrics({
+        totalSystems,
+        verifiedSystems,
+        verificationRate: totalSystems > 0 ? (verifiedSystems / totalSystems) * 100 : 0,
+        systemsWithExpiredApprovals,
+        avgQualityScore: systems.reduce((sum, s) => sum + (s.qualityScore || 0), 0) / totalSystems || 0
+      });
+    } catch (error) {
+      console.error('Error loading quality metrics:', error);
+    }
+  };
+
+  const loadSavedSearches = async () => {
+    try {
+      // Load saved search configurations from localStorage for now
+      const saved = localStorage.getItem('materialFinderSavedSearches');
+      if (saved) {
+        setSavedSearches(JSON.parse(saved));
+      }
+    } catch (error) {
+      console.error('Error loading saved searches:', error);
     }
   };
 
