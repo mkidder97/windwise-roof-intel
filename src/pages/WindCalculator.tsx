@@ -177,11 +177,26 @@ export default function WindCalculator() {
     loadCalculationHistory();
   }, []);
 
-  // Advanced wind speed lookup with interpolation and validation
+  // Advanced wind speed lookup with debugging
   const lookupWindSpeed = async (city: string, state: string, asceEdition: string) => {
+    console.log('🔍 Looking up wind speed:', { city, state, asceEdition });
+    
     try {
-      // First try exact match
-      const { data: exactMatch } = await supabase
+      // Test basic database connectivity first
+      const { data: healthCheck, error: healthError } = await supabase
+        .from('system_health')
+        .select('*');
+      
+      console.log('📊 Database health check:', { healthCheck, healthError });
+      
+      if (healthError) {
+        console.error('❌ Database connectivity failed:', healthError);
+        throw new Error(`Database connectivity issue: ${healthError.message}`);
+      }
+
+      // First try exact match with detailed logging
+      console.log('🎯 Attempting exact wind speed match...');
+      const { data: exactMatch, error: exactError } = await supabase
         .from('wind_speeds')
         .select('*')
         .eq('city', city)
@@ -189,7 +204,15 @@ export default function WindCalculator() {
         .eq('asce_edition', asceEdition)
         .maybeSingle();
 
+      console.log('🎯 Exact match result:', { exactMatch, exactError });
+
+      if (exactError) {
+        console.error('❌ Wind speed query error:', exactError);
+        throw exactError;
+      }
+
       if (exactMatch) {
+        console.log('✅ Found exact wind speed match:', exactMatch.wind_speed, 'mph');
         setWindSpeedValidation({
           isValid: true,
           source: 'database'
@@ -197,17 +220,27 @@ export default function WindCalculator() {
         return exactMatch.wind_speed;
       }
 
-      // If no exact match, find nearby cities for interpolation
-      const { data: nearbyCities } = await supabase
+      // If no exact match, find nearby cities
+      console.log('🔍 No exact match, searching nearby cities...');
+      const { data: nearbyCities, error: nearbyError } = await supabase
         .from('wind_speeds')
         .select('*')
         .eq('state', state)
         .eq('asce_edition', asceEdition)
         .limit(5);
 
+      console.log('🏙️ Nearby cities result:', { nearbyCities, nearbyError });
+
+      if (nearbyError) {
+        console.error('❌ Nearby cities query error:', nearbyError);
+        throw nearbyError;
+      }
+
       if (nearbyCities && nearbyCities.length > 0) {
-        // Simple interpolation using average of nearby cities
         const avgWindSpeed = nearbyCities.reduce((sum, city) => sum + city.wind_speed, 0) / nearbyCities.length;
+        const interpolatedSpeed = Math.round(avgWindSpeed);
+        
+        console.log('🔄 Interpolated wind speed:', interpolatedSpeed, 'mph from', nearbyCities.length, 'nearby cities');
         
         setWindSpeedValidation({
           isValid: true,
@@ -215,17 +248,25 @@ export default function WindCalculator() {
           nearestCities: nearbyCities
         });
         
-        return Math.round(avgWindSpeed);
+        return interpolatedSpeed;
       }
 
-      // Default fallback
+      // Default fallback with warning
+      console.warn('⚠️ No wind speed data found, using default 120 mph');
       setWindSpeedValidation({
         isValid: false,
         source: 'default'
       });
+      
       return 120;
+      
     } catch (error) {
-      console.error('Wind speed lookup error:', error);
+      console.error('💥 Wind speed lookup failed:', error);
+      toast({
+        title: "Wind Speed Lookup Error",
+        description: `Failed to lookup wind speed: ${error.message}`,
+        variant: "destructive",
+      });
       return 120;
     }
   };
@@ -445,18 +486,30 @@ export default function WindCalculator() {
 
   const saveCalculation = async () => {
     if (!results) {
-      console.error('No calculation results to save');
+      console.error('❌ No calculation results to save');
+      toast({
+        title: "Save Error", 
+        description: "No calculation results to save",
+        variant: "destructive",
+      });
       return;
     }
     
     setIsSaving(true);
     const formData = form.getValues();
     
-    console.log('Saving calculation...', { formData, results });
+    console.log('💾 Saving calculation...', { formData, results });
     
     try {
+      // Test database connectivity first
+      const { data: healthCheck } = await supabase
+        .from('system_health')
+        .select('*');
+      
+      console.log('📊 Pre-save health check:', healthCheck);
+
       const calculationData = {
-        project_name: formData.projectName,
+        project_name: formData.projectName || 'Untitled Project',
         building_height: formData.buildingHeight,
         building_length: formData.buildingLength,
         building_width: formData.buildingWidth,
@@ -475,7 +528,7 @@ export default function WindCalculator() {
         corner_pressure: results.cornerPressure,
         max_pressure: results.maxPressure,
         professional_mode: formData.professionalMode,
-        requires_pe_validation: results.peReady,
+        requires_pe_validation: results.peReady || false,
         internal_pressure_included: results.internalPressureIncluded,
         area_dependent_coefficients: results.professionalAccuracy,
         input_parameters: formData as any,
@@ -483,34 +536,35 @@ export default function WindCalculator() {
         user_id: null, // Allow anonymous saves
       };
 
-      console.log('Inserting calculation data:', calculationData);
+      console.log('📝 Inserting calculation data:', calculationData);
 
-      const { data, error } = await supabase.from('calculations').insert(calculationData).select();
+      const { data, error } = await supabase
+        .from('calculations')
+        .insert(calculationData)
+        .select();
 
-      console.log('Calculation save result:', { data, error });
+      console.log('💾 Calculation save result:', { data, error });
 
       if (error) {
-        console.error('Save calculation error:', error);
+        console.error('❌ Save calculation error:', error);
         throw error;
       }
 
-      console.log('Calculation saved successfully');
-
+      console.log('✅ Calculation saved successfully');
+      
       toast({
         title: "Calculation Saved",
-        description: results.professionalAccuracy 
-          ? "Professional calculation saved successfully." 
-          : "Your calculation has been saved successfully.",
+        description: `${results.professionalAccuracy ? 'Professional' : 'Basic'} calculation saved successfully.`,
       });
 
       // Reload calculation history
       loadCalculationHistory();
 
     } catch (error) {
-      console.error('Failed to save calculation:', error);
+      console.error('💥 Failed to save calculation:', error);
       toast({
         title: "Save Error",
-        description: `Failed to save calculation: ${error.message}`,
+        description: `Failed to save: ${error.message}`,
         variant: "destructive",
       });
     } finally {
