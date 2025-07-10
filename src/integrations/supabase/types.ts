@@ -49,37 +49,49 @@ export type Database = {
       }
       asce_parameters: {
         Row: {
+          alpha_coefficient: number | null
+          applicable_terrain: string | null
           created_at: string | null
           edition: string
           exposure_category: string
+          exposure_description: string | null
           formula_variations: Json | null
           height_range: string
           id: string
           kz_factor: number
           pressure_coefficients: Json
           state: string | null
+          zg_gradient_height: number | null
         }
         Insert: {
+          alpha_coefficient?: number | null
+          applicable_terrain?: string | null
           created_at?: string | null
           edition: string
           exposure_category: string
+          exposure_description?: string | null
           formula_variations?: Json | null
           height_range: string
           id?: string
           kz_factor: number
           pressure_coefficients: Json
           state?: string | null
+          zg_gradient_height?: number | null
         }
         Update: {
+          alpha_coefficient?: number | null
+          applicable_terrain?: string | null
           created_at?: string | null
           edition?: string
           exposure_category?: string
+          exposure_description?: string | null
           formula_variations?: Json | null
           height_range?: string
           id?: string
           kz_factor?: number
           pressure_coefficients?: Json
           state?: string | null
+          zg_gradient_height?: number | null
         }
         Relationships: []
       }
@@ -118,6 +130,7 @@ export type Database = {
       }
       calculations: {
         Row: {
+          area_dependent_coefficients: boolean | null
           asce_edition: string
           building_height: number
           building_length: number | null
@@ -132,10 +145,13 @@ export type Database = {
           field_pressure: number | null
           id: string
           input_parameters: Json
+          internal_pressure_included: boolean | null
           jurisdiction: string | null
           max_pressure: number | null
           perimeter_pressure: number | null
+          professional_mode: boolean | null
           project_name: string
+          requires_pe_validation: boolean | null
           results: Json
           roof_type: string
           selected_systems: string[] | null
@@ -145,6 +161,7 @@ export type Database = {
           wind_speed: number
         }
         Insert: {
+          area_dependent_coefficients?: boolean | null
           asce_edition: string
           building_height: number
           building_length?: number | null
@@ -159,10 +176,13 @@ export type Database = {
           field_pressure?: number | null
           id?: string
           input_parameters: Json
+          internal_pressure_included?: boolean | null
           jurisdiction?: string | null
           max_pressure?: number | null
           perimeter_pressure?: number | null
+          professional_mode?: boolean | null
           project_name: string
+          requires_pe_validation?: boolean | null
           results: Json
           roof_type: string
           selected_systems?: string[] | null
@@ -172,6 +192,7 @@ export type Database = {
           wind_speed: number
         }
         Update: {
+          area_dependent_coefficients?: boolean | null
           asce_edition?: string
           building_height?: number
           building_length?: number | null
@@ -186,10 +207,13 @@ export type Database = {
           field_pressure?: number | null
           id?: string
           input_parameters?: Json
+          internal_pressure_included?: boolean | null
           jurisdiction?: string | null
           max_pressure?: number | null
           perimeter_pressure?: number | null
+          professional_mode?: boolean | null
           project_name?: string
+          requires_pe_validation?: boolean | null
           results?: Json
           roof_type?: string
           selected_systems?: string[] | null
@@ -227,6 +251,114 @@ export type Database = {
         }
         Relationships: []
       }
+      engineering_validations: {
+        Row: {
+          asce_compliance_verified: boolean | null
+          calculation_accuracy_verified: boolean | null
+          created_at: string
+          digital_seal_hash: string | null
+          id: string
+          local_code_compliance_verified: boolean | null
+          pe_license_number: string | null
+          pe_name: string | null
+          pe_seal_date: string | null
+          pe_state: string | null
+          project_id: string | null
+          seal_document_url: string | null
+          updated_at: string
+          validation_notes: string | null
+          validation_status: string
+          wind_calculation_id: string | null
+        }
+        Insert: {
+          asce_compliance_verified?: boolean | null
+          calculation_accuracy_verified?: boolean | null
+          created_at?: string
+          digital_seal_hash?: string | null
+          id?: string
+          local_code_compliance_verified?: boolean | null
+          pe_license_number?: string | null
+          pe_name?: string | null
+          pe_seal_date?: string | null
+          pe_state?: string | null
+          project_id?: string | null
+          seal_document_url?: string | null
+          updated_at?: string
+          validation_notes?: string | null
+          validation_status?: string
+          wind_calculation_id?: string | null
+        }
+        Update: {
+          asce_compliance_verified?: boolean | null
+          calculation_accuracy_verified?: boolean | null
+          created_at?: string
+          digital_seal_hash?: string | null
+          id?: string
+          local_code_compliance_verified?: boolean | null
+          pe_license_number?: string | null
+          pe_name?: string | null
+          pe_seal_date?: string | null
+          pe_state?: string | null
+          project_id?: string | null
+          seal_document_url?: string | null
+          updated_at?: string
+          validation_notes?: string | null
+          validation_status?: string
+          wind_calculation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engineering_validations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engineering_validations_wind_calculation_id_fkey"
+            columns: ["wind_calculation_id"]
+            isOneToOne: false
+            referencedRelation: "wind_calculations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_pressure_coefficients: {
+        Row: {
+          asce_edition: string
+          building_classification: string
+          created_at: string
+          enclosure_condition: string | null
+          gcpi_negative: number
+          gcpi_positive: number
+          id: string
+          notes: string | null
+          table_reference: string | null
+        }
+        Insert: {
+          asce_edition?: string
+          building_classification: string
+          created_at?: string
+          enclosure_condition?: string | null
+          gcpi_negative: number
+          gcpi_positive: number
+          id?: string
+          notes?: string | null
+          table_reference?: string | null
+        }
+        Update: {
+          asce_edition?: string
+          building_classification?: string
+          created_at?: string
+          enclosure_condition?: string | null
+          gcpi_negative?: number
+          gcpi_positive?: number
+          id?: string
+          notes?: string | null
+          table_reference?: string | null
+        }
+        Relationships: []
+      }
       local_jurisdictions: {
         Row: {
           city: string | null
@@ -260,6 +392,51 @@ export type Database = {
           requirements?: Json | null
           state?: string
           website?: string | null
+        }
+        Relationships: []
+      }
+      pressure_coefficients_asce: {
+        Row: {
+          asce_edition: string
+          building_type: string
+          created_at: string
+          effective_wind_area_max: number
+          effective_wind_area_min: number
+          gcp_corner: number
+          gcp_field: number
+          gcp_perimeter: number
+          id: string
+          notes: string | null
+          roof_type: string
+          table_reference: string | null
+        }
+        Insert: {
+          asce_edition?: string
+          building_type: string
+          created_at?: string
+          effective_wind_area_max: number
+          effective_wind_area_min: number
+          gcp_corner: number
+          gcp_field: number
+          gcp_perimeter: number
+          id?: string
+          notes?: string | null
+          roof_type: string
+          table_reference?: string | null
+        }
+        Update: {
+          asce_edition?: string
+          building_type?: string
+          created_at?: string
+          effective_wind_area_max?: number
+          effective_wind_area_min?: number
+          gcp_corner?: number
+          gcp_field?: number
+          gcp_perimeter?: number
+          id?: string
+          notes?: string | null
+          roof_type?: string
+          table_reference?: string | null
         }
         Relationships: []
       }
@@ -314,12 +491,15 @@ export type Database = {
           document_url: string | null
           drain_type: string | null
           edge_metal_conditions: string | null
+          engineering_validation_status: string | null
           excluded_scopes: string[] | null
           id: string
           insulation_thickness: number | null
           insulation_type: string | null
+          pe_seal_required: boolean | null
           penetration_types: string[] | null
           processing_status: string | null
+          professional_calculation_type: string | null
           project_id: string
           project_type: string
           property_manager_email: string
@@ -355,12 +535,15 @@ export type Database = {
           document_url?: string | null
           drain_type?: string | null
           edge_metal_conditions?: string | null
+          engineering_validation_status?: string | null
           excluded_scopes?: string[] | null
           id?: string
           insulation_thickness?: number | null
           insulation_type?: string | null
+          pe_seal_required?: boolean | null
           penetration_types?: string[] | null
           processing_status?: string | null
+          professional_calculation_type?: string | null
           project_id: string
           project_type: string
           property_manager_email: string
@@ -396,12 +579,15 @@ export type Database = {
           document_url?: string | null
           drain_type?: string | null
           edge_metal_conditions?: string | null
+          engineering_validation_status?: string | null
           excluded_scopes?: string[] | null
           id?: string
           insulation_thickness?: number | null
           insulation_type?: string | null
+          pe_seal_required?: boolean | null
           penetration_types?: string[] | null
           processing_status?: string | null
+          professional_calculation_type?: string | null
           project_id?: string
           project_type?: string
           property_manager_email?: string
@@ -550,6 +736,98 @@ export type Database = {
             columns: ["system_id"]
             isOneToOne: false
             referencedRelation: "roof_systems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wind_calculations: {
+        Row: {
+          asce_section_reference: string | null
+          calculation_id: string | null
+          calculation_method_reference: string | null
+          calculation_type: string
+          created_at: string
+          effective_wind_area: number
+          gcp_corner_interpolated: number
+          gcp_field_interpolated: number
+          gcp_perimeter_interpolated: number
+          gcpi_negative: number
+          gcpi_positive: number
+          height_above_ground: number
+          id: string
+          internal_pressure_classification: string
+          kz_continuous: number
+          net_pressure_corner: number
+          net_pressure_field: number
+          net_pressure_field_prime: number
+          net_pressure_perimeter: number
+          pressure_corner: number
+          pressure_field: number
+          pressure_field_prime: number
+          pressure_perimeter: number
+          requires_pe_seal: boolean
+          updated_at: string
+        }
+        Insert: {
+          asce_section_reference?: string | null
+          calculation_id?: string | null
+          calculation_method_reference?: string | null
+          calculation_type: string
+          created_at?: string
+          effective_wind_area: number
+          gcp_corner_interpolated: number
+          gcp_field_interpolated: number
+          gcp_perimeter_interpolated: number
+          gcpi_negative: number
+          gcpi_positive: number
+          height_above_ground: number
+          id?: string
+          internal_pressure_classification: string
+          kz_continuous: number
+          net_pressure_corner: number
+          net_pressure_field: number
+          net_pressure_field_prime: number
+          net_pressure_perimeter: number
+          pressure_corner: number
+          pressure_field: number
+          pressure_field_prime: number
+          pressure_perimeter: number
+          requires_pe_seal?: boolean
+          updated_at?: string
+        }
+        Update: {
+          asce_section_reference?: string | null
+          calculation_id?: string | null
+          calculation_method_reference?: string | null
+          calculation_type?: string
+          created_at?: string
+          effective_wind_area?: number
+          gcp_corner_interpolated?: number
+          gcp_field_interpolated?: number
+          gcp_perimeter_interpolated?: number
+          gcpi_negative?: number
+          gcpi_positive?: number
+          height_above_ground?: number
+          id?: string
+          internal_pressure_classification?: string
+          kz_continuous?: number
+          net_pressure_corner?: number
+          net_pressure_field?: number
+          net_pressure_field_prime?: number
+          net_pressure_perimeter?: number
+          pressure_corner?: number
+          pressure_field?: number
+          pressure_field_prime?: number
+          pressure_perimeter?: number
+          requires_pe_seal?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wind_calculations_calculation_id_fkey"
+            columns: ["calculation_id"]
+            isOneToOne: false
+            referencedRelation: "calculations"
             referencedColumns: ["id"]
           },
         ]
