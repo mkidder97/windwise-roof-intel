@@ -906,6 +906,69 @@ export type Database = {
           },
         ]
       }
+      system_metrics: {
+        Row: {
+          id: string
+          metric_name: string
+          metric_tags: Json | null
+          metric_unit: string | null
+          metric_value: number
+          recorded_at: string | null
+        }
+        Insert: {
+          id?: string
+          metric_name: string
+          metric_tags?: Json | null
+          metric_unit?: string | null
+          metric_value: number
+          recorded_at?: string | null
+        }
+        Update: {
+          id?: string
+          metric_name?: string
+          metric_tags?: Json | null
+          metric_unit?: string | null
+          metric_value?: number
+          recorded_at?: string | null
+        }
+        Relationships: []
+      }
+      user_activity_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          ip_address: unknown | null
+          resource_id: string | null
+          resource_type: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          ip_address?: unknown | null
+          resource_id?: string | null
+          resource_type?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       wind_calculations: {
         Row: {
           asce_section_reference: string | null
