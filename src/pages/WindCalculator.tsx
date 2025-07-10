@@ -246,7 +246,7 @@ export default function WindCalculator() {
       state: formData.state,
     });
     
-    navigate(`/material-finder?${searchParams.toString()}`);
+    navigate(`/materials?${searchParams.toString()}`);
     
     toast({
       title: "Searching Systems",
