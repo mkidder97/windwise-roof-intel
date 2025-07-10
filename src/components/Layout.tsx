@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Calculator, Search, BarChart3, WindIcon, Settings, LogOut, User, Monitor, GitCompare } from "lucide-react";
+import { Calculator, Search, BarChart3, WindIcon, Settings, LogOut, User, Monitor, GitCompare, TestTube, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,8 @@ const engineerNavigation = [
   { name: "Quality Dashboard", href: "/materials/dashboard", icon: BarChart3 },
   { name: "Monitor Sites", href: "/materials/monitoring", icon: Monitor },
   { name: "Review Changes", href: "/materials/review-changes", icon: GitCompare },
+  { name: "Integration Tests", href: "/integration-test", icon: TestTube },
+  { name: "Data Quality", href: "/data-quality", icon: Database },
 ];
 
 export function Layout() {

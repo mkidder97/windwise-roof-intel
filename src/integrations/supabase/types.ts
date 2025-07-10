@@ -1117,7 +1117,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      validate_data_quality: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          table_name: string
+          validation_rule: string
+          total_records: number
+          valid_records: number
+          completion_percentage: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

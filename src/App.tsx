@@ -11,6 +11,8 @@ import MaterialsManage from "./pages/MaterialsManage";
 import MaterialsDashboard from "./pages/MaterialsDashboard";
 import MaterialsMonitoring from "./pages/MaterialsMonitoring";
 import ReviewChanges from "./pages/ReviewChanges";
+import IntegrationTest from "./pages/IntegrationTest";
+import DataQualityDashboard from "./pages/DataQualityDashboard";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -33,6 +35,8 @@ const App = () => (
               <Route path="materials/dashboard" element={<MaterialsDashboard />} />
               <Route path="materials/monitoring" element={<MaterialsMonitoring />} />
               <Route path="materials/review-changes" element={<ReviewChanges />} />
+              <Route path="integration-test" element={<IntegrationTest />} />
+              <Route path="data-quality" element={<DataQualityDashboard />} />
               <Route path="dashboard" element={<Dashboard />} />
             </Route>
             <Route path="*" element={<NotFound />} />
