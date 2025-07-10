@@ -224,6 +224,65 @@ export type Database = {
         }
         Relationships: []
       }
+      change_detection_log: {
+        Row: {
+          auto_approved: boolean | null
+          change_data: Json
+          change_summary: string | null
+          change_type: string
+          created_at: string | null
+          detection_confidence: number | null
+          id: string
+          monitoring_id: string | null
+          page_url: string
+          previous_data: Json | null
+          review_notes: string | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          auto_approved?: boolean | null
+          change_data: Json
+          change_summary?: string | null
+          change_type: string
+          created_at?: string | null
+          detection_confidence?: number | null
+          id?: string
+          monitoring_id?: string | null
+          page_url: string
+          previous_data?: Json | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          auto_approved?: boolean | null
+          change_data?: Json
+          change_summary?: string | null
+          change_type?: string
+          created_at?: string | null
+          detection_confidence?: number | null
+          id?: string
+          monitoring_id?: string | null
+          page_url?: string
+          previous_data?: Json | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "change_detection_log_monitoring_id_fkey"
+            columns: ["monitoring_id"]
+            isOneToOne: false
+            referencedRelation: "manufacturer_monitoring"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_stats: {
         Row: {
           avg_processing_time_seconds: number | null
@@ -394,6 +453,83 @@ export type Database = {
           website?: string | null
         }
         Relationships: []
+      }
+      manufacturer_monitoring: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_change_detected: string | null
+          last_checked: string | null
+          manufacturer_name: string
+          monitoring_config: Json
+          notification_settings: Json
+          status: string | null
+          updated_at: string | null
+          website_url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_change_detected?: string | null
+          last_checked?: string | null
+          manufacturer_name: string
+          monitoring_config?: Json
+          notification_settings?: Json
+          status?: string | null
+          updated_at?: string | null
+          website_url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_change_detected?: string | null
+          last_checked?: string | null
+          manufacturer_name?: string
+          monitoring_config?: Json
+          notification_settings?: Json
+          status?: string | null
+          updated_at?: string | null
+          website_url?: string
+        }
+        Relationships: []
+      }
+      notification_history: {
+        Row: {
+          change_id: string | null
+          error_message: string | null
+          id: string
+          notification_type: string
+          recipient: string
+          sent_at: string | null
+          status: string | null
+        }
+        Insert: {
+          change_id?: string | null
+          error_message?: string | null
+          id?: string
+          notification_type: string
+          recipient: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          change_id?: string | null
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          recipient?: string
+          sent_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_history_change_id_fkey"
+            columns: ["change_id"]
+            isOneToOne: false
+            referencedRelation: "change_detection_log"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pressure_coefficients_asce: {
         Row: {

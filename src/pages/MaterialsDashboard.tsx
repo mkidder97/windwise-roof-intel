@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, CalendarDays } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { 
   BarChart3, 
   Shield, 
@@ -33,17 +32,9 @@ interface DashboardStats {
   };
 }
 
-interface ManufacturerData {
-  name: string;
-  systems: number;
-  approvals: number;
-}
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
 export default function MaterialsDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [manufacturerData, setManufacturerData] = useState<ManufacturerData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
   const { isEngineer } = useAuth();
@@ -106,7 +97,7 @@ export default function MaterialsDashboard() {
       const completeDescriptions = systems?.filter(s => s.description && s.description.length > 20).length || 0;
       const dataQualityScore = Math.round((completeDescriptions / totalSystems) * 100);
 
-      // Manufacturer breakdown
+      // Manufacturer breakdown - simplified
       const manufacturerMap = new Map<string, { systems: number; approvals: number }>();
       
       systems?.forEach(system => {
@@ -124,12 +115,6 @@ export default function MaterialsDashboard() {
         }
       });
 
-      const manufacturerData = Array.from(manufacturerMap.entries()).map(([name, data]) => ({
-        name,
-        systems: data.systems,
-        approvals: data.approvals,
-      }));
-
       setStats({
         totalSystems,
         totalApprovals,
@@ -143,8 +128,6 @@ export default function MaterialsDashboard() {
           dataQualityScore,
         },
       });
-
-      setManufacturerData(manufacturerData);
     } catch (error) {
       toast({
         title: "Error",
@@ -249,58 +232,62 @@ export default function MaterialsDashboard() {
         </Card>
       </div>
 
-      {/* Charts Section */}
+      {/* Simplified Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Manufacturer Distribution */}
+        {/* Manufacturer Summary */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Systems by Manufacturer
+              Manufacturer Summary
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={manufacturerData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="systems" fill="#8884d8" />
-                <Bar dataKey="approvals" fill="#82ca9d" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              <div className="text-center p-6 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg">
+                <div className="text-2xl font-bold text-primary">{stats.totalSystems}</div>
+                <div className="text-sm text-muted-foreground">Total Systems Tracked</div>
+              </div>
+              
+              <div className="text-center p-6 bg-gradient-to-r from-success/10 to-primary/10 rounded-lg">
+                <div className="text-2xl font-bold text-success">{stats.totalApprovals}</div>
+                <div className="text-sm text-muted-foreground">Total State Approvals</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Approval Coverage */}
+        {/* Approval Coverage Summary */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              Approval Coverage
+              Approval Coverage Summary
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-success/10 rounded-lg">
+                <span className="font-medium">Systems with Approvals</span>
+                <Badge className="bg-success text-success-foreground">
+                  {stats.systemsWithApprovals}
+                </Badge>
+              </div>
+              
+              <div className="flex justify-between items-center p-4 bg-warning/10 rounded-lg">
+                <span className="font-medium">Systems Needing Review</span>
+                <Badge className="bg-warning text-warning-foreground">
+                  {stats.systemsNeedingReview}
+                </Badge>
+              </div>
+              
+              <div className="text-center pt-4">
+                <div className="text-2xl font-bold text-primary">
+                  {Math.round((stats.systemsWithApprovals / stats.totalSystems) * 100)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Coverage Rate</div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
