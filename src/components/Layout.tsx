@@ -1,5 +1,8 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
-import { Calculator, Search, BarChart3, WindIcon } from "lucide-react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import { Calculator, Search, BarChart3, WindIcon, Settings, LogOut, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const navigation = [
@@ -8,8 +11,26 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
 ];
 
+const engineerNavigation = [
+  { name: "Manage Systems", href: "/materials/manage", icon: Settings },
+  { name: "Quality Dashboard", href: "/materials/dashboard", icon: BarChart3 },
+];
+
 export function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, signOut, isEngineer } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  // Redirect to auth if not authenticated
+  if (!user) {
+    navigate('/auth');
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -28,27 +49,74 @@ export function Layout() {
             </div>
             
             {/* Navigation */}
-            <nav className="hidden md:flex gap-1">
-              {navigation.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground shadow-engineering"
-                        : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+            <div className="flex items-center gap-4">
+              <nav className="hidden md:flex gap-1">
+                {navigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-engineering"
+                          : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+                
+                {/* Engineer Navigation */}
+                {isEngineer && engineerNavigation.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-engineering"
+                          : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              {/* User Menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <User className="h-4 w-4" />
+                    {profile?.full_name || user?.email || 'User'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5">
+                    <p className="text-sm font-medium">{profile?.full_name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">{user?.email}</p>
+                    {profile?.role && (
+                      <p className="text-xs text-primary font-medium capitalize">{profile.role}</p>
                     )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.name}
-                  </Link>
-                );
-              })}
-            </nav>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>
