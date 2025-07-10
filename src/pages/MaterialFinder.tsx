@@ -161,38 +161,64 @@ export default function MaterialFinder() {
   }, [searchParams]);
 
   const loadRoofSystems = async () => {
-    console.log('Loading roof systems...');
+    console.log('🏗️ Loading roof systems...');
     
     try {
+      // Test database connectivity first
+      const { data: healthCheck, error: healthError } = await supabase
+        .from('system_health')
+        .select('*');
+      
+      console.log('📊 Database health check:', { healthCheck, healthError });
+      
+      if (healthError) {
+        console.error('❌ Database connectivity failed:', healthError);
+        throw new Error(`Database connectivity issue: ${healthError.message}`);
+      }
+
+      // Load roof systems with detailed logging
+      console.log('🔍 Querying roof_systems table...');
       const { data: systemsData, error: systemsError } = await supabase
         .from('roof_systems')
         .select('*');
 
-      console.log('Roof systems query result:', { systemsData, systemsError });
+      console.log('🏗️ Roof systems query result:', { 
+        systemsCount: systemsData?.length, 
+        systemsError,
+        sampleSystem: systemsData?.[0] 
+      });
 
       if (systemsError) {
-        console.error('Roof systems error:', systemsError);
+        console.error('❌ Roof systems error:', systemsError);
         throw systemsError;
       }
 
       if (!systemsData || systemsData.length === 0) {
-        console.warn('No roof systems found in database');
+        console.warn('⚠️ No roof systems found in database');
         setSystems([]);
+        toast({
+          title: "No Data",
+          description: "No roofing systems found in database",
+          variant: "destructive",
+        });
         return;
       }
 
-      console.log(`Found ${systemsData.length} roof systems`);
+      console.log(`✅ Found ${systemsData.length} roof systems`);
 
-      // Get approvals for each system
+      // Load state approvals with progress tracking
+      console.log('🏛️ Loading state approvals for each system...');
       const systemsWithApprovals = await Promise.all(
-        systemsData.map(async (system) => {
+        systemsData.map(async (system, index) => {
+          console.log(`📋 Loading approvals for system ${index + 1}/${systemsData.length}: ${system.system_name}`);
+          
           const { data: approvals, error: approvalsError } = await supabase
             .from('state_approvals')
             .select('*')
             .eq('system_id', system.id);
 
           if (approvalsError) {
-            console.error(`Error loading approvals for system ${system.id}:`, approvalsError);
+            console.error(`❌ Error loading approvals for system ${system.id}:`, approvalsError);
           }
 
           // Calculate quality indicators
@@ -209,6 +235,8 @@ export default function MaterialFinder() {
             100 - (expiredApprovalsCount * 10) - (needsVerificationReview ? 20 : 0)
           );
 
+          console.log(`📊 System ${system.system_name}: ${approvals?.length || 0} approvals, quality score: ${qualityScore}`);
+
           return {
             ...system,
             approvals: approvals || [],
@@ -219,16 +247,16 @@ export default function MaterialFinder() {
         })
       );
 
-      console.log(`Loaded ${systemsWithApprovals.length} systems with approvals`);
+      console.log(`✅ Loaded ${systemsWithApprovals.length} systems with approvals`);
       setSystems(systemsWithApprovals);
 
       toast({
         title: "Systems Loaded",
-        description: `Loaded ${systemsWithApprovals.length} roofing systems successfully.`,
+        description: `Successfully loaded ${systemsWithApprovals.length} roofing systems.`,
       });
 
     } catch (error) {
-      console.error('Error loading roof systems:', error);
+      console.error('💥 Error loading roof systems:', error);
       toast({
         title: "Database Error",
         description: `Failed to load roof systems: ${error.message}`,
