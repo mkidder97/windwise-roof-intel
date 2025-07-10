@@ -720,14 +720,36 @@ export default function WindCalculator() {
 
                    {/* Professional Tabs Interface */}
                    <Tabs defaultValue="basic" className="w-full">
-                     <TabsList className="grid w-full grid-cols-4">
-                       <TabsTrigger value="basic">Basic</TabsTrigger>
-                       <TabsTrigger value="advanced">Advanced</TabsTrigger>
-                       <TabsTrigger value="professional">Professional</TabsTrigger>
-                       <TabsTrigger value="project">Project</TabsTrigger>
+                     <TabsList className="grid w-full grid-cols-3">
+                       <TabsTrigger value="basic">
+                         <div className="text-center">
+                           <div>Basic</div>
+                           <div className="text-xs text-muted-foreground">Quick Calc</div>
+                         </div>
+                       </TabsTrigger>
+                       <TabsTrigger value="professional">
+                         <div className="text-center">
+                           <div>Professional</div>
+                           <div className="text-xs text-muted-foreground">Design Quality</div>
+                         </div>
+                       </TabsTrigger>
+                       <TabsTrigger value="project">
+                         <div className="text-center">
+                           <div>Project</div>
+                           <div className="text-xs text-muted-foreground">Documentation</div>
+                         </div>
+                       </TabsTrigger>
                      </TabsList>
                      
                      <TabsContent value="basic" className="space-y-4">
+                       {/* Add description */}
+                       <div className="p-3 bg-muted/50 rounded-lg mb-4">
+                         <p className="text-sm text-muted-foreground">
+                           <strong>Quick calculations</strong> using standard parameters and database wind speeds. 
+                           For detailed site analysis and PE-grade accuracy, use the Professional tab.
+                         </p>
+                       </div>
+                       
                        {/* Technical Parameters */}
                        <div className="space-y-4">
                          <div className="flex items-center gap-2 mb-2">
@@ -888,12 +910,20 @@ export default function WindCalculator() {
                        </div>
                      </TabsContent>
 
-                     <TabsContent value="advanced" className="space-y-4">
-                       {/* Advanced Wind Speed and Topographic Features */}
+                     <TabsContent value="professional" className="space-y-4">
+                       {/* Add description */}
+                       <div className="p-3 bg-primary/10 rounded-lg mb-4 border border-primary/20">
+                         <p className="text-sm text-muted-foreground">
+                           <strong>Professional-grade calculations</strong> with site-specific conditions, 
+                           building classification analysis, and PE-sealable accuracy for final roof designs.
+                         </p>
+                       </div>
+                       
+                       {/* Site Conditions Section (from Advanced) */}
                        <div className="space-y-4">
                          <div className="flex items-center gap-2 mb-2">
                            <TrendingUp className="h-4 w-4 text-primary" />
-                           <h3 className="font-semibold">Advanced Wind Analysis</h3>
+                           <h3 className="font-semibold">Site Conditions</h3>
                          </div>
 
                          {/* Custom Wind Speed */}
@@ -916,6 +946,7 @@ export default function WindCalculator() {
                            )}
                          />
 
+                         {/* Wind Speed Justification (conditional) */}
                          {form.watch("customWindSpeed") && (
                            <FormField
                              control={form.control}
@@ -935,7 +966,7 @@ export default function WindCalculator() {
                            />
                          )}
 
-                         {/* Topographic Effects */}
+                         {/* Topographic Features */}
                          <FormField
                            control={form.control}
                            name="topographicType"
@@ -959,6 +990,7 @@ export default function WindCalculator() {
                            )}
                          />
 
+                         {/* Conditional Hill/Escarpment Fields */}
                          {form.watch("topographicType") !== "none" && (
                            <div className="grid grid-cols-2 gap-4">
                              <FormField
@@ -1005,14 +1037,14 @@ export default function WindCalculator() {
                            )}
                          />
                        </div>
-                     </TabsContent>
 
-                     <TabsContent value="professional" className="space-y-4">
-                       {/* Professional Building Classification Section */}
+                       <Separator />
+
+                       {/* Building Classification Section (from Professional) */}
                        <div className="space-y-4">
                          <div className="flex items-center gap-2 mb-2">
                            <Shield className="h-4 w-4 text-primary" />
-                           <h3 className="font-semibold">Professional Classification</h3>
+                           <h3 className="font-semibold">Building Classification</h3>
                          </div>
 
                      <FormField
