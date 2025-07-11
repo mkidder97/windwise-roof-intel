@@ -6,7 +6,14 @@ import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { 
+  uploadCADFile, 
+  validateCADFile, 
+  updateProcessingStatus,
+  getCADFileInfo,
+  deleteCADFile,
+  CAD_CONFIG 
+} from "@/lib/cadFileManager";
 
 interface GeometryData {
   shape_type: 'rectangle' | 'l_shape' | 'complex';
@@ -36,9 +43,6 @@ interface FileValidation {
   errors: string[];
 }
 
-const SUPPORTED_FORMATS = ['.dwg', '.dxf', '.pdf', '.svg'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
 export function CADUploadManager({ 
   onGeometryExtracted, 
   onError, 
@@ -50,70 +54,11 @@ export function CADUploadManager({
   const [processingResults, setProcessingResults] = useState<any>(null);
   const { toast } = useToast();
 
-  // Validate file format and size
-  const validateFile = useCallback((file: File): FileValidation => {
-    const errors: string[] = [];
-    
-    // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      errors.push(`File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds 50MB limit`);
-    }
-    
-    // Check file format
-    const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
-    if (!SUPPORTED_FORMATS.includes(fileExtension)) {
-      errors.push(`Unsupported format: ${fileExtension}. Supported: ${SUPPORTED_FORMATS.join(', ')}`);
-    }
-    
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }, []);
-
-  // Generate unique file path
-  const generateFilePath = useCallback((file: File, userId: string): string => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const fileExtension = file.name.split('.').pop();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-    return `${userId}/${timestamp}-${sanitizedName}`;
-  }, []);
-
-  // Upload file to Supabase Storage
-  const uploadFile = useCallback(async (file: File): Promise<string> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const filePath = generateFilePath(file, user.id);
-    
-    setUploadProgress({
-      progress: 0,
-      phase: 'uploading',
-      message: 'Uploading CAD file...'
-    });
-
-    const { data, error } = await supabase.storage
-      .from('cad-files')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: false
-      });
-
-    if (error) {
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-
-    setUploadProgress({
-      progress: 100,
-      phase: 'processing',
-      message: 'Processing CAD file...'
-    });
-
-    return filePath;
-  }, [generateFilePath]);
-
   // Mock CAD processing (in real implementation, this would call a processing service)
-  const processCADFile = useCallback(async (filePath: string, fileName: string): Promise<GeometryData> => {
+  const processCADFile = useCallback(async (geometryId: string, fileName: string): Promise<GeometryData> => {
+    // Update status to processing
+    await updateProcessingStatus(geometryId, 'processing');
+    
     // Simulate processing time
     await new Promise(resolve => setTimeout(resolve, 2000));
     
@@ -121,89 +66,68 @@ export function CADUploadManager({
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     let mockGeometry: GeometryData;
     
-    switch (fileExtension) {
-      case 'dwg':
-      case 'dxf':
-        mockGeometry = {
-          shape_type: 'complex',
-          dimensions: {
-            length: 200,
-            width: 150,
-            height: 30,
-            extractedFromCAD: true
-          },
-          zone_calculations: {
-            field_zone: { area: 25000, gcp: -0.9 },
-            perimeter_zone: { area: 5000, gcp: -1.4 },
-            corner_zones: { area: 1000, gcp: -2.0 }
-          },
-          total_area: 30000,
-          perimeter_length: 700
-        };
-        break;
-      case 'pdf':
-        mockGeometry = {
-          shape_type: 'rectangle',
-          dimensions: {
-            length: 180,
-            width: 120,
-            height: 25,
-            extractedFromPDF: true
-          },
-          total_area: 21600,
-          perimeter_length: 600
-        };
-        break;
-      case 'svg':
-        mockGeometry = {
-          shape_type: 'l_shape',
-          dimensions: {
-            length1: 200,
-            width1: 100,
-            length2: 100,
-            width2: 80,
-            height: 28,
-            extractedFromSVG: true
-          },
-          total_area: 28000,
-          perimeter_length: 760
-        };
-        break;
-      default:
-        throw new Error('Unsupported file format for processing');
+    try {
+      switch (fileExtension) {
+        case 'dwg':
+        case 'dxf':
+          mockGeometry = {
+            shape_type: 'complex',
+            dimensions: {
+              length: 200,
+              width: 150,
+              height: 30,
+              extractedFromCAD: true
+            },
+            zone_calculations: {
+              field_zone: { area: 25000, gcp: -0.9 },
+              perimeter_zone: { area: 5000, gcp: -1.4 },
+              corner_zones: { area: 1000, gcp: -2.0 }
+            },
+            total_area: 30000,
+            perimeter_length: 700
+          };
+          break;
+        case 'pdf':
+          mockGeometry = {
+            shape_type: 'rectangle',
+            dimensions: {
+              length: 180,
+              width: 120,
+              height: 25,
+              extractedFromPDF: true
+            },
+            total_area: 21600,
+            perimeter_length: 600
+          };
+          break;
+        case 'svg':
+          mockGeometry = {
+            shape_type: 'l_shape',
+            dimensions: {
+              length1: 200,
+              width1: 100,
+              length2: 100,
+              width2: 80,
+              height: 28,
+              extractedFromSVG: true
+            },
+            total_area: 28000,
+            perimeter_length: 760
+          };
+          break;
+        default:
+          throw new Error('Unsupported file format for processing');
+      }
+      
+      // Update status to completed with processed data
+      await updateProcessingStatus(geometryId, 'completed', undefined, mockGeometry);
+      
+      return mockGeometry;
+    } catch (error) {
+      // Update status to failed
+      await updateProcessingStatus(geometryId, 'failed', error instanceof Error ? error.message : 'Processing failed');
+      throw error;
     }
-    
-    return mockGeometry;
-  }, []);
-
-  // Save geometry to database
-  const saveGeometry = useCallback(async (
-    geometry: GeometryData, 
-    fileName: string, 
-    filePath: string
-  ): Promise<string> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const { data, error } = await supabase
-      .from('building_geometries')
-      .insert({
-        name: fileName.replace(/\.[^/.]+$/, ''), // Remove file extension
-        shape_type: geometry.shape_type,
-        dimensions: geometry.dimensions,
-        zone_calculations: geometry.zone_calculations || {},
-        cad_file_url: filePath,
-        total_area: geometry.total_area,
-        perimeter_length: geometry.perimeter_length
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new Error(`Failed to save geometry: ${error.message}`);
-    }
-
-    return data.id;
   }, []);
 
   // Handle file upload process
@@ -212,21 +136,40 @@ export function CADUploadManager({
       setSelectedFile(file);
       setProcessingResults(null);
       
-      // Validate file
-      const validation = validateFile(file);
+      // Validate file using helper function
+      const validation = validateCADFile(file);
       if (!validation.isValid) {
         onError(validation.errors.join(', '));
         return;
       }
 
-      // Upload file
-      const filePath = await uploadFile(file);
-      
+      setUploadProgress({
+        progress: 0,
+        phase: 'uploading',
+        message: 'Uploading CAD file...'
+      });
+
+      // Upload file using helper function
+      const uploadResult = await uploadCADFile(file, (progress) => {
+        setUploadProgress({
+          progress,
+          phase: 'uploading',
+          message: 'Uploading CAD file...'
+        });
+      });
+
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Upload failed');
+      }
+
+      setUploadProgress({
+        progress: 100,
+        phase: 'processing',
+        message: 'Processing CAD file...'
+      });
+
       // Process CAD file
-      const geometry = await processCADFile(filePath, file.name);
-      
-      // Save to database
-      const geometryId = await saveGeometry(geometry, file.name, filePath);
+      const geometry = await processCADFile(uploadResult.geometryId!, file.name);
       
       setUploadProgress({
         progress: 100,
@@ -237,8 +180,8 @@ export function CADUploadManager({
       setProcessingResults({
         geometry,
         fileName: file.name,
-        filePath,
-        geometryId
+        filePath: uploadResult.filePath,
+        geometryId: uploadResult.geometryId
       });
 
       toast({
@@ -247,7 +190,7 @@ export function CADUploadManager({
       });
 
       // Call parent callback
-      onGeometryExtracted(geometry, geometryId);
+      onGeometryExtracted(geometry, uploadResult.geometryId!);
 
     } catch (error) {
       console.error('CAD upload error:', error);
@@ -267,7 +210,7 @@ export function CADUploadManager({
         variant: "destructive",
       });
     }
-  }, [validateFile, uploadFile, processCADFile, saveGeometry, onGeometryExtracted, onError, toast]);
+  }, [processCADFile, onGeometryExtracted, onError, toast]);
 
   // Handle file selection
   const handleFileSelect = useCallback((files: FileList | null) => {
@@ -350,7 +293,7 @@ export function CADUploadManager({
               Drag and drop your CAD file here, or click to browse
             </p>
             <p className="text-sm text-muted-foreground mb-4">
-              Supported formats: {SUPPORTED_FORMATS.join(', ')} (max 50MB)
+              Supported formats: {CAD_CONFIG.ALLOWED_TYPES.join(', ')} (max {CAD_CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)
             </p>
             <Button 
               variant="outline"
@@ -362,7 +305,7 @@ export function CADUploadManager({
               id="cad-file-input"
               type="file"
               className="hidden"
-              accept={SUPPORTED_FORMATS.join(',')}
+              accept={CAD_CONFIG.ALLOWED_TYPES.join(',')}
               onChange={(e) => handleFileSelect(e.target.files)}
             />
           </div>

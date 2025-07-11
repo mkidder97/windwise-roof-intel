@@ -133,9 +133,14 @@ export type Database = {
           cad_file_url: string | null
           created_at: string
           dimensions: Json
+          file_size: number | null
+          file_type: string | null
           id: string
           name: string
           perimeter_length: number | null
+          processed_at: string | null
+          processing_error: string | null
+          processing_status: string | null
           shape_type: string
           total_area: number | null
           updated_at: string
@@ -145,9 +150,14 @@ export type Database = {
           cad_file_url?: string | null
           created_at?: string
           dimensions?: Json
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           name: string
           perimeter_length?: number | null
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string | null
           shape_type: string
           total_area?: number | null
           updated_at?: string
@@ -157,9 +167,14 @@ export type Database = {
           cad_file_url?: string | null
           created_at?: string
           dimensions?: Json
+          file_size?: number | null
+          file_type?: string | null
           id?: string
           name?: string
           perimeter_length?: number | null
+          processed_at?: string | null
+          processing_error?: string | null
+          processing_status?: string | null
           shape_type?: string
           total_area?: number | null
           updated_at?: string
@@ -1270,6 +1285,10 @@ export type Database = {
       }
     }
     Functions: {
+      cleanup_old_cad_files: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       validate_data_quality: {
         Args: Record<PropertyKey, never>
         Returns: {
