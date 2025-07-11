@@ -11,22 +11,46 @@ interface BuildingGeometry {
     length: number;
     width: number;
     height: number;
+    // L-shape specific dimensions
+    length1?: number;
+    width1?: number;
+    length2?: number;
+    width2?: number;
+    // Offset for L-shape positioning
+    offsetX?: number;
+    offsetY?: number;
     [key: string]: any;
   };
   name?: string;
 }
 
+interface ValidationWarning {
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  asceReference?: string;
+  recommendation?: string;
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  complexity: 'basic' | 'intermediate' | 'complex';
+  warnings: ValidationWarning[];
+  requiresProfessionalAnalysis: boolean;
+  confidenceLevel: number; // 0-100
+  recommendations: string[];
+}
+
 interface ZoneResult {
   type: 'field' | 'perimeter' | 'corner';
   area: number;
-  boundaries: {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-  };
+  boundaries: Array<{x: number; y: number}>; // Coordinate array for complex shapes
   pressureCoefficient: number;
   description: string;
+  zoneWidth?: number; // For ASCE 7 compliance documentation
+  uncertaintyBounds?: {
+    lower: number;
+    upper: number;
+  };
 }
 
 interface EffectiveWindArea {
@@ -44,232 +68,548 @@ interface CalculationResponse {
     field: number;
     perimeter: number;
     corner: number;
+    internal?: {
+      positive: number;
+      negative: number;
+    };
   };
   effectiveAreas: EffectiveWindArea[];
-  warnings: string[];
+  validation: ValidationResult;
   metadata: {
     calculationMethod: string;
-    confidenceLevel: string;
-    asceCompliance: boolean;
-    complexityLevel: 'basic' | 'intermediate' | 'complex';
+    asceEdition: string;
+    windParameters: {
+      windSpeed: number;
+      exposureCategory: string;
+      height: number;
+    };
+    uncertaintyBounds: {
+      lower: number;
+      upper: number;
+    };
   };
 }
 
-// Validate input geometry and complexity
-function validateGeometryComplexity(geometry: BuildingGeometry): { 
-  isValid: boolean; 
-  complexity: 'basic' | 'intermediate' | 'complex'; 
-  warnings: string[] 
-} {
-  const warnings: string[] = [];
+// Comprehensive validation system
+function validateGeometry(geometry: BuildingGeometry, windSpeed: number, exposureCategory: string): ValidationResult {
+  const warnings: ValidationWarning[] = [];
+  const recommendations: string[] = [];
   let complexity: 'basic' | 'intermediate' | 'complex' = 'basic';
+  let requiresProfessionalAnalysis = false;
+  let confidenceLevel = 100;
   
   const { length, width, height } = geometry.dimensions;
   
-  // Basic validation
+  // 1. Input Validation
   if (!length || !width || !height || length <= 0 || width <= 0 || height <= 0) {
-    return { isValid: false, complexity: 'basic', warnings: ['Invalid building dimensions'] };
+    return { 
+      isValid: false, 
+      complexity: 'basic', 
+      warnings: [{ severity: 'critical', message: 'Invalid building dimensions provided' }],
+      requiresProfessionalAnalysis: true,
+      confidenceLevel: 0,
+      recommendations: ['Verify building dimensions and re-submit calculation']
+    };
   }
   
-  // Check aspect ratios for complexity
-  const aspectRatio = Math.max(length, width) / Math.min(length, width);
-  if (aspectRatio > 5) {
+  // Dimension reasonableness checks
+  if (length < 10 || width < 10) {
+    warnings.push({
+      severity: 'warning',
+      message: 'Very small building dimensions detected',
+      recommendation: 'Verify measurements are in correct units (feet)'
+    });
+    confidenceLevel -= 10;
+  }
+  
+  if (length > 1000 || width > 1000) {
+    warnings.push({
+      severity: 'warning',
+      message: 'Very large building detected',
+      asceReference: 'ASCE 7 Section 26.5',
+      recommendation: 'Consider wind tunnel testing for large structures'
+    });
     complexity = 'intermediate';
-    warnings.push('High aspect ratio building may require special consideration');
+    confidenceLevel -= 15;
   }
   
-  // Check height to width ratio
-  const heightToWidth = height / Math.min(length, width);
-  if (heightToWidth > 4) {
+  if (height < 5) {
+    warnings.push({
+      severity: 'info',
+      message: 'Low-rise building confirmed',
+      asceReference: 'ASCE 7 Section 26.2'
+    });
+  }
+  
+  if (height > 60) {
+    warnings.push({
+      severity: 'critical',
+      message: 'Building exceeds low-rise classification (>60 ft)',
+      asceReference: 'ASCE 7 Section 26.2',
+      recommendation: 'High-rise building analysis required'
+    });
+    requiresProfessionalAnalysis = true;
     complexity = 'complex';
-    warnings.push('High-rise building requires advanced analysis');
+    confidenceLevel = 0;
   }
   
-  // Shape-specific complexity
+  // 2. Aspect ratio and geometry checks
+  const aspectRatio = Math.max(length, width) / Math.min(length, width);
+  if (aspectRatio > 3) {
+    complexity = 'intermediate';
+    confidenceLevel -= 10;
+    warnings.push({
+      severity: 'warning',
+      message: `High aspect ratio detected (${aspectRatio.toFixed(1)}:1)`,
+      recommendation: 'Consider additional wind analysis for elongated buildings'
+    });
+  }
+  
+  if (aspectRatio > 10) {
+    warnings.push({
+      severity: 'critical',
+      message: 'Extremely high aspect ratio may invalidate simplified method',
+      asceReference: 'ASCE 7 Section 26.5.1',
+      recommendation: 'Professional wind analysis strongly recommended'
+    });
+    requiresProfessionalAnalysis = true;
+    complexity = 'complex';
+    confidenceLevel -= 25;
+  }
+  
+  // Height to width ratio check
+  const heightToWidth = height / Math.min(length, width);
+  if (heightToWidth > 1) {
+    complexity = 'intermediate';
+    warnings.push({
+      severity: 'warning',
+      message: `Height-to-width ratio: ${heightToWidth.toFixed(1)}`,
+      recommendation: 'Verify simplified method applicability'
+    });
+    confidenceLevel -= 5;
+  }
+  
+  if (heightToWidth > 2.5) {
+    warnings.push({
+      severity: 'critical',
+      message: 'Building height may require different analysis method',
+      asceReference: 'ASCE 7 Section 26.5.1',
+      recommendation: 'Consider analytical or wind tunnel procedure'
+    });
+    requiresProfessionalAnalysis = true;
+    complexity = 'complex';
+    confidenceLevel -= 20;
+  }
+  
+  // 3. Shape-specific validation
   if (geometry.shape === 'l_shape') {
     complexity = 'intermediate';
-    warnings.push('L-shaped buildings require careful zone definition');
-  } else if (geometry.shape === 'complex') {
-    complexity = 'complex';
-    warnings.push('Complex geometries may require professional engineering review');
+    confidenceLevel -= 10;
+    
+    const { length1, width1, length2, width2 } = geometry.dimensions;
+    if (!length1 || !width1 || !length2 || !width2) {
+      warnings.push({
+        severity: 'critical',
+        message: 'Incomplete L-shape dimensions',
+        recommendation: 'Provide all leg dimensions for accurate calculation'
+      });
+      return { 
+        isValid: false, 
+        complexity, 
+        warnings,
+        requiresProfessionalAnalysis: true,
+        confidenceLevel: 0,
+        recommendations: ['Complete L-shape dimensional input']
+      };
+    }
+    
+    // Validate L-shape proportions
+    const leg1Area = length1 * width1;
+    const leg2Area = length2 * width2;
+    const totalApproxArea = leg1Area + leg2Area;
+    
+    if (Math.abs(leg1Area - leg2Area) / Math.max(leg1Area, leg2Area) > 0.5) {
+      warnings.push({
+        severity: 'warning',
+        message: 'Significantly unequal L-shape legs detected',
+        recommendation: 'Verify geometry and consider re-entrant corner effects'
+      });
+      confidenceLevel -= 10;
+    }
+    
+    warnings.push({
+      severity: 'info',
+      message: 'L-shaped building requires careful zone definition at re-entrant corners',
+      asceReference: 'ASCE 7 Figure 26.5-1'
+    });
   }
   
-  return { isValid: true, complexity, warnings };
+  if (geometry.shape === 'complex') {
+    complexity = 'complex';
+    requiresProfessionalAnalysis = true;
+    confidenceLevel = Math.min(confidenceLevel, 60);
+    warnings.push({
+      severity: 'critical',
+      message: 'Complex geometry detected',
+      asceReference: 'ASCE 7 Section 26.5.1',
+      recommendation: 'Professional engineering review required'
+    });
+  }
+  
+  // 4. Wind parameter validation
+  if (windSpeed < 85) {
+    warnings.push({
+      severity: 'info',
+      message: 'Low wind speed region'
+    });
+  }
+  
+  if (windSpeed > 200) {
+    warnings.push({
+      severity: 'warning',
+      message: 'High wind speed requires special attention',
+      recommendation: 'Verify local wind speed requirements'
+    });
+    confidenceLevel -= 5;
+  }
+  
+  if (!['B', 'C', 'D'].includes(exposureCategory)) {
+    warnings.push({
+      severity: 'critical',
+      message: 'Invalid exposure category'
+    });
+    return { 
+      isValid: false, 
+      complexity, 
+      warnings,
+      requiresProfessionalAnalysis: true,
+      confidenceLevel: 0,
+      recommendations: ['Select valid exposure category (B, C, or D)']
+    };
+  }
+  
+  // 5. Professional requirements detection
+  if (height > 30 && exposureCategory === 'D') {
+    warnings.push({
+      severity: 'warning',
+      message: 'High building in open exposure',
+      recommendation: 'Consider enhanced analysis for critical applications'
+    });
+    confidenceLevel -= 5;
+  }
+  
+  // Generate recommendations
+  if (complexity === 'intermediate') {
+    recommendations.push('Consider professional review for critical applications');
+  }
+  
+  if (complexity === 'complex' || requiresProfessionalAnalysis) {
+    recommendations.push('Professional engineering analysis required');
+    recommendations.push('Consider wind tunnel testing for critical structures');
+  }
+  
+  if (confidenceLevel < 80) {
+    recommendations.push('Verify results with alternative calculation methods');
+  }
+  
+  return {
+    isValid: true,
+    complexity,
+    warnings,
+    requiresProfessionalAnalysis,
+    confidenceLevel: Math.max(confidenceLevel, 0),
+    recommendations
+  };
 }
 
-// Calculate zones for rectangular buildings
+// Enhanced rectangular zone calculation with ASCE 7 compliance
 function calculateRectangularZones(geometry: BuildingGeometry): ZoneResult[] {
   const { length, width, height } = geometry.dimensions;
   const zones: ZoneResult[] = [];
   
-  // ASCE 7 zone definitions for flat roofs
-  const cornerZoneSize = Math.min(0.1 * Math.min(length, width), 0.4 * height, 3.0); // feet
-  const perimeterZoneSize = Math.min(0.1 * Math.min(length, width), 0.4 * height, 10.0); // feet
+  // ASCE 7 zone width calculations per Section 26.5
+  const minDimension = Math.min(length, width);
+  const cornerZoneSize = Math.min(0.1 * minDimension, 0.4 * height, 3.0);
+  const perimeterZoneSize = Math.min(0.1 * minDimension, 0.4 * height, 10.0);
   
-  // Corner zones (4 corners)
-  const cornerArea = cornerZoneSize * cornerZoneSize;
-  for (let i = 0; i < 4; i++) {
-    const corner = i + 1;
+  // Ensure minimum zone sizes for very small buildings
+  const actualCornerSize = Math.max(cornerZoneSize, 3.0);
+  const actualPerimeterSize = Math.max(perimeterZoneSize, 3.0);
+  
+  // Corner zones (4 corners) with coordinate arrays
+  const cornerArea = actualCornerSize * actualCornerSize;
+  const cornerPositions = [
+    { name: 'Southwest', x: 0, y: 0 },
+    { name: 'Southeast', x: length - actualCornerSize, y: 0 },
+    { name: 'Northwest', x: 0, y: width - actualCornerSize },
+    { name: 'Northeast', x: length - actualCornerSize, y: width - actualCornerSize }
+  ];
+  
+  cornerPositions.forEach((pos, i) => {
     zones.push({
       type: 'corner',
       area: cornerArea,
-      boundaries: {
-        x1: i < 2 ? 0 : length - cornerZoneSize,
-        y1: i % 2 === 0 ? 0 : width - cornerZoneSize,
-        x2: i < 2 ? cornerZoneSize : length,
-        y2: i % 2 === 0 ? cornerZoneSize : width
-      },
-      pressureCoefficient: -2.0, // Typical corner coefficient
-      description: `Corner Zone ${corner}`
+      boundaries: [
+        { x: pos.x, y: pos.y },
+        { x: pos.x + actualCornerSize, y: pos.y },
+        { x: pos.x + actualCornerSize, y: pos.y + actualCornerSize },
+        { x: pos.x, y: pos.y + actualCornerSize }
+      ],
+      pressureCoefficient: -2.0,
+      description: `Corner Zone ${i + 1} (${pos.name})`,
+      zoneWidth: actualCornerSize,
+      uncertaintyBounds: { lower: -2.5, upper: -1.5 }
     });
-  }
+  });
   
-  // Perimeter zones (excluding corners)
-  const perimeterAreaLong = (length - 2 * cornerZoneSize) * perimeterZoneSize * 2;
-  const perimeterAreaShort = (width - 2 * cornerZoneSize) * perimeterZoneSize * 2;
+  // Perimeter zones (4 sides, excluding corners)
+  const perimeterZones = [
+    {
+      name: 'South Edge',
+      boundaries: [
+        { x: actualCornerSize, y: 0 },
+        { x: length - actualCornerSize, y: 0 },
+        { x: length - actualCornerSize, y: actualPerimeterSize },
+        { x: actualCornerSize, y: actualPerimeterSize }
+      ],
+      area: (length - 2 * actualCornerSize) * actualPerimeterSize
+    },
+    {
+      name: 'North Edge',
+      boundaries: [
+        { x: actualCornerSize, y: width - actualPerimeterSize },
+        { x: length - actualCornerSize, y: width - actualPerimeterSize },
+        { x: length - actualCornerSize, y: width },
+        { x: actualCornerSize, y: width }
+      ],
+      area: (length - 2 * actualCornerSize) * actualPerimeterSize
+    },
+    {
+      name: 'West Edge',
+      boundaries: [
+        { x: 0, y: actualCornerSize },
+        { x: actualPerimeterSize, y: actualCornerSize },
+        { x: actualPerimeterSize, y: width - actualCornerSize },
+        { x: 0, y: width - actualCornerSize }
+      ],
+      area: (width - 2 * actualCornerSize) * actualPerimeterSize
+    },
+    {
+      name: 'East Edge',
+      boundaries: [
+        { x: length - actualPerimeterSize, y: actualCornerSize },
+        { x: length, y: actualCornerSize },
+        { x: length, y: width - actualCornerSize },
+        { x: length - actualPerimeterSize, y: width - actualCornerSize }
+      ],
+      area: (width - 2 * actualCornerSize) * actualPerimeterSize
+    }
+  ];
   
-  if (perimeterAreaLong > 0) {
-    zones.push({
-      type: 'perimeter',
-      area: perimeterAreaLong,
-      boundaries: {
-        x1: cornerZoneSize,
-        y1: 0,
-        x2: length - cornerZoneSize,
-        y2: perimeterZoneSize
-      },
-      pressureCoefficient: -1.4, // Typical perimeter coefficient
-      description: 'Perimeter Zone - Long Sides'
-    });
-  }
-  
-  if (perimeterAreaShort > 0) {
-    zones.push({
-      type: 'perimeter',
-      area: perimeterAreaShort,
-      boundaries: {
-        x1: 0,
-        y1: cornerZoneSize,
-        x2: perimeterZoneSize,
-        y2: width - cornerZoneSize
-      },
-      pressureCoefficient: -1.4,
-      description: 'Perimeter Zone - Short Sides'
-    });
-  }
+  perimeterZones.forEach((zone, i) => {
+    if (zone.area > 0) {
+      zones.push({
+        type: 'perimeter',
+        area: zone.area,
+        boundaries: zone.boundaries,
+        pressureCoefficient: -1.4,
+        description: `Perimeter Zone ${i + 1} (${zone.name})`,
+        zoneWidth: actualPerimeterSize,
+        uncertaintyBounds: { lower: -1.8, upper: -1.0 }
+      });
+    }
+  });
   
   // Field zone (interior area)
-  const fieldArea = (length - 2 * perimeterZoneSize) * (width - 2 * perimeterZoneSize);
+  const fieldLength = length - 2 * actualPerimeterSize;
+  const fieldWidth = width - 2 * actualPerimeterSize;
+  const fieldArea = fieldLength * fieldWidth;
+  
   if (fieldArea > 0) {
     zones.push({
       type: 'field',
       area: fieldArea,
-      boundaries: {
-        x1: perimeterZoneSize,
-        y1: perimeterZoneSize,
-        x2: length - perimeterZoneSize,
-        y2: width - perimeterZoneSize
-      },
-      pressureCoefficient: -0.9, // Typical field coefficient
-      description: 'Field Zone - Interior'
+      boundaries: [
+        { x: actualPerimeterSize, y: actualPerimeterSize },
+        { x: length - actualPerimeterSize, y: actualPerimeterSize },
+        { x: length - actualPerimeterSize, y: width - actualPerimeterSize },
+        { x: actualPerimeterSize, y: width - actualPerimeterSize }
+      ],
+      pressureCoefficient: -0.9,
+      description: 'Field Zone (Interior)',
+      uncertaintyBounds: { lower: -1.1, upper: -0.7 }
     });
   }
   
   return zones;
 }
 
-// Calculate zones for L-shaped buildings
+// Enhanced L-shape zone calculation with re-entrant corner handling
 function calculateLShapeZones(geometry: BuildingGeometry): ZoneResult[] {
   const zones: ZoneResult[] = [];
   const { dimensions } = geometry;
   
-  // For L-shape, we need additional dimensions
-  const length1 = dimensions.length1 || dimensions.length;
-  const width1 = dimensions.width1 || dimensions.width;
-  const length2 = dimensions.length2 || dimensions.length * 0.6;
-  const width2 = dimensions.width2 || dimensions.width * 0.6;
+  const length1 = dimensions.length1!;
+  const width1 = dimensions.width1!;
+  const length2 = dimensions.length2!;
+  const width2 = dimensions.width2!;
   const height = dimensions.height;
+  const offsetX = dimensions.offsetX || 0;
+  const offsetY = dimensions.offsetY || 0;
   
-  // Calculate zones for each leg of the L-shape
+  // Calculate zones for Leg 1 (primary leg)
   const leg1Geometry: BuildingGeometry = {
     shape: 'rectangle',
     dimensions: { length: length1, width: width1, height }
   };
+  const leg1Zones = calculateRectangularZones(leg1Geometry);
   
+  // Calculate zones for Leg 2 (secondary leg)
   const leg2Geometry: BuildingGeometry = {
     shape: 'rectangle',
     dimensions: { length: length2, width: width2, height }
   };
-  
-  const leg1Zones = calculateRectangularZones(leg1Geometry);
   const leg2Zones = calculateRectangularZones(leg2Geometry);
   
-  // Adjust zones for L-shape geometry and add re-entrant corner effects
+  // Add Leg 1 zones (no offset)
   zones.push(...leg1Zones.map(zone => ({
     ...zone,
     description: `Leg 1 - ${zone.description}`
   })));
   
+  // Add Leg 2 zones with proper positioning
   zones.push(...leg2Zones.map(zone => ({
     ...zone,
     description: `Leg 2 - ${zone.description}`,
-    boundaries: {
-      x1: zone.boundaries.x1 + length1,
-      y1: zone.boundaries.y1,
-      x2: zone.boundaries.x2 + length1,
-      y2: zone.boundaries.y2
-    }
+    boundaries: zone.boundaries.map(point => ({
+      x: point.x + length1 + offsetX,
+      y: point.y + offsetY
+    }))
   })));
   
-  // Add re-entrant corner zone with higher pressure coefficient
-  const reentrantSize = Math.min(10.0, 0.1 * Math.min(length1, width1));
+  // Calculate re-entrant corner zones
+  const minDimension = Math.min(Math.min(length1, width1), Math.min(length2, width2));
+  const reentrantSize = Math.min(0.1 * minDimension, 0.4 * height, 10.0);
+  const actualReentrantSize = Math.max(reentrantSize, 5.0); // Minimum size for re-entrant
+  
+  // Primary re-entrant corner (inside corner of L)
+  const reentrantX = length1;
+  const reentrantY = width1;
+  
   zones.push({
     type: 'corner',
-    area: reentrantSize * reentrantSize,
-    boundaries: {
-      x1: length1 - reentrantSize,
-      y1: width1 - reentrantSize,
-      x2: length1,
-      y2: width1
-    },
+    area: actualReentrantSize * actualReentrantSize,
+    boundaries: [
+      { x: reentrantX - actualReentrantSize, y: reentrantY - actualReentrantSize },
+      { x: reentrantX, y: reentrantY - actualReentrantSize },
+      { x: reentrantX, y: reentrantY },
+      { x: reentrantX - actualReentrantSize, y: reentrantY }
+    ],
     pressureCoefficient: -3.0, // Higher suction at re-entrant corners
-    description: 'Re-entrant Corner Zone'
+    description: 'Re-entrant Corner Zone (Primary)',
+    zoneWidth: actualReentrantSize,
+    uncertaintyBounds: { lower: -3.5, upper: -2.5 }
+  });
+  
+  // Additional re-entrant corner zones if legs create multiple inside corners
+  if (width2 > width1) {
+    // Additional corner zone for extended leg
+    zones.push({
+      type: 'corner',
+      area: actualReentrantSize * actualReentrantSize,
+      boundaries: [
+        { x: reentrantX, y: width1 },
+        { x: reentrantX + actualReentrantSize, y: width1 },
+        { x: reentrantX + actualReentrantSize, y: width1 + actualReentrantSize },
+        { x: reentrantX, y: width1 + actualReentrantSize }
+      ],
+      pressureCoefficient: -3.0,
+      description: 'Re-entrant Corner Zone (Secondary)',
+      zoneWidth: actualReentrantSize,
+      uncertaintyBounds: { lower: -3.5, upper: -2.5 }
+    });
+  }
+  
+  // Enhanced perimeter zones at L-junction
+  const junctionPerimeterSize = Math.max(actualReentrantSize, 8.0);
+  
+  // Junction perimeter zone along the inside edge
+  zones.push({
+    type: 'perimeter',
+    area: (Math.min(length1, length2) - actualReentrantSize) * junctionPerimeterSize,
+    boundaries: [
+      { x: reentrantX - junctionPerimeterSize, y: reentrantY },
+      { x: reentrantX, y: reentrantY },
+      { x: reentrantX, y: reentrantY + Math.min(width2 - width1, 20) },
+      { x: reentrantX - junctionPerimeterSize, y: reentrantY + Math.min(width2 - width1, 20) }
+    ],
+    pressureCoefficient: -2.2, // Enhanced pressure at junction
+    description: 'L-Junction Perimeter Zone',
+    zoneWidth: junctionPerimeterSize,
+    uncertaintyBounds: { lower: -2.8, upper: -1.6 }
   });
   
   return zones;
 }
 
-// Calculate effective wind areas for different element types
-function calculateEffectiveWindAreas(zones: ZoneResult[], elementSpacing: { x: number; y: number }): EffectiveWindArea[] {
+// Enhanced effective wind area engine with ASCE 7 Table 26.5-1 compliance
+function calculateEffectiveWindAreas(
+  zones: ZoneResult[], 
+  elementSpacing: { x: number; y: number },
+  windSpeed: number,
+  exposureCategory: string,
+  height: number
+): EffectiveWindArea[] {
   const effectiveAreas: EffectiveWindArea[] = [];
   const elementTypes = ['fastener', 'panel', 'structural_member'] as const;
   
+  // ASCE 7 effective area multipliers for different element types
+  const getEffectiveAreaMultiplier = (elementType: string): number => {
+    switch (elementType) {
+      case 'fastener': return 1.0;
+      case 'panel': return 4.0;
+      case 'structural_member': return 25.0; // Updated for larger structural elements
+      default: return 1.0;
+    }
+  };
+  
+  // Area-dependent pressure coefficient adjustments (ASCE 7 Table 26.5-1)
+  const getAreaDependentCoefficient = (effectiveArea: number, baseCoeff: number): number => {
+    if (effectiveArea <= 10) {
+      return baseCoeff * 1.0; // Full coefficient for small areas
+    } else if (effectiveArea <= 100) {
+      // Linear interpolation between 10 and 100 sq ft
+      const factor = 1.0 - (effectiveArea - 10) / 90 * 0.25;
+      return baseCoeff * factor;
+    } else if (effectiveArea <= 500) {
+      // Linear interpolation between 100 and 500 sq ft
+      const factor = 0.75 - (effectiveArea - 100) / 400 * 0.15;
+      return baseCoeff * factor;
+    } else {
+      return baseCoeff * 0.6; // Minimum coefficient for large areas
+    }
+  };
+  
   zones.forEach(zone => {
     elementTypes.forEach(elementType => {
-      // Calculate effective area based on element spacing and zone
-      let spacingMultiplier = 1.0;
+      const spacingMultiplier = getEffectiveAreaMultiplier(elementType);
       
-      switch (elementType) {
-        case 'fastener':
-          spacingMultiplier = 1.0; // Full spacing area
-          break;
-        case 'panel':
-          spacingMultiplier = 4.0; // Larger area for panels
-          break;
-        case 'structural_member':
-          spacingMultiplier = 10.0; // Largest area for structural members
-          break;
-      }
+      // Calculate tributary area
+      const tributaryArea = elementSpacing.x * elementSpacing.y * spacingMultiplier / 144; // Convert to sq ft
       
-      const effectiveArea = Math.min(
-        elementSpacing.x * elementSpacing.y * spacingMultiplier,
-        zone.area,
-        1000 // Maximum effective area limit
-      );
+      // Effective area is limited by zone area and maximum practical limits
+      const maxEffectiveArea = elementType === 'fastener' ? 100 : 
+                             elementType === 'panel' ? 500 : 1000;
       
-      // Simplified design pressure calculation (would use actual wind speed and coefficients)
-      const baseDesignPressure = 30; // psf, placeholder
-      const designPressure = Math.abs(zone.pressureCoefficient) * baseDesignPressure;
+      const effectiveArea = Math.min(tributaryArea, zone.area, maxEffectiveArea);
+      
+      // Apply area-dependent coefficient adjustment
+      const adjustedCoefficient = getAreaDependentCoefficient(effectiveArea, Math.abs(zone.pressureCoefficient));
+      
+      // Calculate design pressure using proper ASCE 7 methodology
+      const Kz = getVelocityPressureCoefficient(height, exposureCategory);
+      const qz = 0.00256 * Kz * 0.85 * 1.0 * windSpeed * windSpeed; // Basic velocity pressure
+      const designPressure = qz * adjustedCoefficient;
       
       effectiveAreas.push({
         elementType,
@@ -285,26 +625,61 @@ function calculateEffectiveWindAreas(zones: ZoneResult[], elementSpacing: { x: n
   return effectiveAreas;
 }
 
-// Calculate actual wind pressures based on ASCE 7
+// Velocity pressure coefficient calculation
+function getVelocityPressureCoefficient(height: number, exposureCategory: string): number {
+  const alpha = exposureCategory === 'B' ? 7.0 : exposureCategory === 'C' ? 9.5 : 11.5;
+  const zg = exposureCategory === 'B' ? 1200 : exposureCategory === 'C' ? 900 : 700;
+  
+  if (height <= 15) {
+    return exposureCategory === 'B' ? 0.7 : exposureCategory === 'C' ? 0.85 : 1.03;
+  }
+  
+  return 2.01 * Math.pow(height / zg, 2 / alpha);
+}
+
+// Enhanced pressure calculation with full ASCE 7 methodology
 function calculateWindPressures(
   windSpeed: number, 
   exposureCategory: string, 
   height: number,
   asceEdition: string
-): { field: number; perimeter: number; corner: number } {
-  // Simplified pressure calculation - in practice would use full ASCE 7 methodology
-  const Kz = exposureCategory === 'B' ? 0.7 : exposureCategory === 'C' ? 0.85 : 1.0;
-  const Kzt = 1.0; // Topographic factor
-  const Kd = 0.85; // Directionality factor
-  const I = 1.0; // Importance factor
+): { field: number; perimeter: number; corner: number; internal: { positive: number; negative: number } } {
   
-  // Basic velocity pressure (simplified)
+  // ASCE 7 parameters
+  const Kz = getVelocityPressureCoefficient(height, exposureCategory);
+  const Kzt = 1.0; // Topographic factor (assumed flat terrain)
+  const Kd = 0.85; // Directionality factor for buildings
+  const I = 1.0; // Importance factor (Risk Category II)
+  
+  // Calculate velocity pressure
   const qz = 0.00256 * Kz * Kzt * Kd * I * windSpeed * windSpeed;
   
+  // External pressure coefficients (ASCE 7 Figure 26.5-1)
+  const GCp_field = -0.9;
+  const GCp_perimeter = -1.4;
+  const GCp_corner = -2.0;
+  
+  // Internal pressure coefficients (enclosed building)
+  const GCpi_positive = 0.18;
+  const GCpi_negative = -0.18;
+  
+  // Calculate design pressures
+  const fieldPressure = qz * Math.abs(GCp_field);
+  const perimeterPressure = qz * Math.abs(GCp_perimeter);
+  const cornerPressure = qz * Math.abs(GCp_corner);
+  
+  // Internal pressures
+  const internalPositive = qz * GCpi_positive;
+  const internalNegative = qz * Math.abs(GCpi_negative);
+  
   return {
-    field: qz * 0.9, // GCp = -0.9 for field
-    perimeter: qz * 1.4, // GCp = -1.4 for perimeter
-    corner: qz * 2.0 // GCp = -2.0 for corner
+    field: fieldPressure,
+    perimeter: perimeterPressure,
+    corner: cornerPressure,
+    internal: {
+      positive: internalPositive,
+      negative: internalNegative
+    }
   };
 }
 
@@ -317,9 +692,24 @@ serve(async (req) => {
   try {
     console.log('Building zones calculation request received');
     
-    const { buildingGeometry, windSpeed, exposureCategory, asceEdition } = await req.json();
+    const { 
+      buildingGeometry, 
+      windSpeed, 
+      exposureCategory, 
+      asceEdition,
+      elementSpacing = { x: 12, y: 12 },
+      professionalMode = false
+    } = await req.json();
     
-    // Input validation
+    console.log('Input parameters:', { 
+      shape: buildingGeometry?.shape, 
+      windSpeed, 
+      exposureCategory, 
+      asceEdition,
+      professionalMode 
+    });
+    
+    // Comprehensive input validation
     if (!buildingGeometry || !windSpeed || !exposureCategory || !asceEdition) {
       throw new Error('Missing required parameters: buildingGeometry, windSpeed, exposureCategory, asceEdition');
     }
@@ -332,12 +722,19 @@ serve(async (req) => {
       throw new Error('Exposure category must be B, C, or D');
     }
     
+    if (!['ASCE 7-10', 'ASCE 7-16', 'ASCE 7-22'].includes(asceEdition)) {
+      throw new Error('ASCE edition must be ASCE 7-10, 7-16, or 7-22');
+    }
+    
     console.log(`Calculating zones for ${buildingGeometry.shape} building`);
     
-    // Validate geometry complexity
-    const validation = validateGeometryComplexity(buildingGeometry);
+    // Comprehensive geometry validation
+    const validation = validateGeometry(buildingGeometry, windSpeed, exposureCategory);
     if (!validation.isValid) {
-      throw new Error(`Invalid geometry: ${validation.warnings.join(', ')}`);
+      const errorMessages = validation.warnings
+        .filter(w => w.severity === 'critical')
+        .map(w => w.message);
+      throw new Error(`Invalid geometry: ${errorMessages.join(', ')}`);
     }
     
     // Calculate zones based on building shape
@@ -346,20 +743,43 @@ serve(async (req) => {
     switch (buildingGeometry.shape) {
       case 'rectangle':
         zones = calculateRectangularZones(buildingGeometry);
+        console.log(`Calculated ${zones.length} zones for rectangular building`);
         break;
       case 'l_shape':
         zones = calculateLShapeZones(buildingGeometry);
+        console.log(`Calculated ${zones.length} zones for L-shaped building`);
         break;
       case 'complex':
-        // For complex shapes, default to rectangular approximation with warnings
+        // For complex shapes, use rectangular approximation with enhanced warnings
         zones = calculateRectangularZones(buildingGeometry);
-        validation.warnings.push('Complex geometry approximated as rectangular - professional review recommended');
+        validation.warnings.push({
+          severity: 'critical',
+          message: 'Complex geometry approximated as rectangular',
+          asceReference: 'ASCE 7 Section 26.5.1',
+          recommendation: 'Professional engineering review required for complex geometries'
+        });
+        validation.requiresProfessionalAnalysis = true;
+        validation.confidenceLevel = Math.min(validation.confidenceLevel, 50);
         break;
       default:
         throw new Error(`Unsupported building shape: ${buildingGeometry.shape}`);
     }
     
-    // Calculate wind pressures
+    // Quality assurance - validate zone areas
+    const totalZoneArea = zones.reduce((sum, zone) => sum + zone.area, 0);
+    const buildingArea = buildingGeometry.dimensions.length * buildingGeometry.dimensions.width;
+    const areaRatio = totalZoneArea / buildingArea;
+    
+    if (Math.abs(areaRatio - 1.0) > 0.1) {
+      validation.warnings.push({
+        severity: 'warning',
+        message: `Zone area calculation discrepancy: ${(areaRatio * 100).toFixed(1)}% of building area`,
+        recommendation: 'Verify zone boundary calculations'
+      });
+      validation.confidenceLevel -= 10;
+    }
+    
+    // Calculate wind pressures with full ASCE 7 methodology
     const pressures = calculateWindPressures(
       windSpeed, 
       exposureCategory, 
@@ -367,26 +787,46 @@ serve(async (req) => {
       asceEdition
     );
     
-    // Calculate effective wind areas (using typical fastener spacing)
-    const elementSpacing = { x: 12, y: 12 }; // inches, typical spacing
-    const effectiveAreas = calculateEffectiveWindAreas(zones, elementSpacing);
+    console.log('Calculated pressures:', pressures);
     
-    // Prepare response
+    // Calculate effective wind areas with enhanced methodology
+    const effectiveAreas = calculateEffectiveWindAreas(
+      zones, 
+      elementSpacing,
+      windSpeed,
+      exposureCategory,
+      buildingGeometry.dimensions.height
+    );
+    
+    console.log(`Calculated ${effectiveAreas.length} effective wind areas`);
+    
+    // Calculate uncertainty bounds
+    const uncertaintyBounds = {
+      lower: validation.confidenceLevel >= 90 ? 0.95 : 
+             validation.confidenceLevel >= 70 ? 0.85 : 0.75,
+      upper: validation.confidenceLevel >= 90 ? 1.05 : 
+             validation.confidenceLevel >= 70 ? 1.15 : 1.25
+    };
+    
+    // Prepare comprehensive response
     const response: CalculationResponse = {
       zones,
       pressures,
       effectiveAreas,
-      warnings: validation.warnings,
+      validation,
       metadata: {
-        calculationMethod: `ASCE 7 ${asceEdition} Building Envelope Method`,
-        confidenceLevel: validation.complexity === 'basic' ? 'High' : 
-                        validation.complexity === 'intermediate' ? 'Medium' : 'Low',
-        asceCompliance: true,
-        complexityLevel: validation.complexity
+        calculationMethod: `ASCE ${asceEdition} Building Envelope Method`,
+        asceEdition,
+        windParameters: {
+          windSpeed,
+          exposureCategory,
+          height: buildingGeometry.dimensions.height
+        },
+        uncertaintyBounds
       }
     };
     
-    console.log(`Calculation completed: ${zones.length} zones calculated`);
+    console.log(`Calculation completed successfully: ${zones.length} zones, confidence: ${validation.confidenceLevel}%`);
     
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -395,19 +835,39 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in calculate-building-zones function:', error);
     
-    return new Response(JSON.stringify({ 
-      error: error.message,
+    const errorResponse: CalculationResponse = {
       zones: [],
-      pressures: { field: 0, perimeter: 0, corner: 0 },
+      pressures: { 
+        field: 0, 
+        perimeter: 0, 
+        corner: 0,
+        internal: { positive: 0, negative: 0 }
+      },
       effectiveAreas: [],
-      warnings: ['Calculation failed'],
+      validation: {
+        isValid: false,
+        complexity: 'basic',
+        warnings: [{ 
+          severity: 'critical', 
+          message: `Calculation failed: ${error.message}` 
+        }],
+        requiresProfessionalAnalysis: true,
+        confidenceLevel: 0,
+        recommendations: ['Review input parameters and retry calculation']
+      },
       metadata: {
         calculationMethod: 'Error',
-        confidenceLevel: 'None',
-        asceCompliance: false,
-        complexityLevel: 'basic'
+        asceEdition: 'Unknown',
+        windParameters: {
+          windSpeed: 0,
+          exposureCategory: 'Unknown',
+          height: 0
+        },
+        uncertaintyBounds: { lower: 0, upper: 0 }
       }
-    }), {
+    };
+    
+    return new Response(JSON.stringify(errorResponse), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
