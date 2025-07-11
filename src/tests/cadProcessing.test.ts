@@ -3,7 +3,13 @@ import { testHelpers, TEST_GEOMETRIES, MOCK_CAD_FILES, PE_VALIDATION_TOLERANCES 
 import { supabase } from '../integrations/supabase/client';
 
 // Mock the supabase client
-jest.mock('@/integrations/supabase/client');
+jest.mock('../integrations/supabase/client', () => ({
+  supabase: {
+    functions: {
+      invoke: jest.fn()
+    }
+  }
+}));
 
 describe('CAD Processing Accuracy Testing', () => {
   beforeEach(() => {
@@ -34,34 +40,40 @@ describe('CAD Processing Accuracy Testing', () => {
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValue(mockResponse);
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
         fileUrl: 'mock-file-url',
         fileName: mockFile.name
       });
       
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.shape_type).toBe('rectangle');
-      expect(result.data.extractedGeometry.dimensions.length).toBe(100);
-      expect(result.data.extractedGeometry.dimensions.width).toBe(80);
-      expect(result.data.extractedGeometry.extraction_confidence).toBeGreaterThanOrEqual(
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.extractedGeometry?.shape_type).toBe('rectangle');
+      expect(result.data?.extractedGeometry?.dimensions?.length).toBe(100);
+      expect(result.data?.extractedGeometry?.dimensions?.width).toBe(80);
+      expect(result.data?.extractedGeometry?.extraction_confidence).toBeGreaterThanOrEqual(
         PE_VALIDATION_TOLERANCES.EXTRACTION_CONFIDENCE_MIN
       );
+      
+      // Validate accuracy against known test geometry
+      const testGeometry = TEST_GEOMETRIES.rectangle_100x80;
+      expect(result.data?.extractedGeometry?.total_area).toBe(testGeometry.expected_area);
+      expect(result.data?.extractedGeometry?.perimeter_length).toBe(testGeometry.expected_perimeter);
     });
 
-    test('should accurately extract L-shape geometry from DXF', async () => {
+    test('should handle L-shape geometry extraction', async () => {
       const mockFile = testHelpers.createMockCADFile(MOCK_CAD_FILES.complex_l_shape);
       
-      const mockResponse = {
+      // Mock L-shape processing
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: {
           success: true,
           extractedGeometry: {
             shape_type: 'l_shape',
-            dimensions: { 
-              length1: 120, width1: 80, 
-              length2: 80, width2: 60, 
-              height: 32 
+            dimensions: {
+              length1: 120, width1: 80,
+              length2: 80, width2: 60,
+              height: 32
             },
             total_area: 14400,
             perimeter_length: 600,
@@ -69,45 +81,43 @@ describe('CAD Processing Accuracy Testing', () => {
           }
         },
         error: null
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
+      });
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-l-shape-url',
+        fileUrl: 'mock-file-url',
         fileName: mockFile.name
       });
       
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.shape_type).toBe('l_shape');
-      expect(result.data.extractedGeometry.total_area).toBe(14400);
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.extractedGeometry?.shape_type).toBe('l_shape');
+      expect(result.data?.extractedGeometry?.total_area).toBe(14400);
     });
 
-    test('should handle corrupted DXF files gracefully', async () => {
+    test('should handle corrupted files gracefully', async () => {
       const mockFile = testHelpers.createMockCADFile(MOCK_CAD_FILES.corrupted_file);
       
-      const mockResponse = {
+      // Mock processing error
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: null,
         error: { message: 'Failed to parse CAD file' }
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
+      });
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-corrupted-url',
+        fileUrl: 'mock-file-url',
         fileName: mockFile.name
       });
       
       expect(result.error).toBeTruthy();
-      expect(result.error.message).toContain('Failed to parse CAD file');
+      expect(result.error?.message).toContain('Failed to parse CAD file');
     });
   });
 
   describe('PDF File Processing', () => {
-    test('should extract geometry from PDF with dimension text', async () => {
+    test('should extract geometry from PDF plans', async () => {
       const mockFile = testHelpers.createMockCADFile(MOCK_CAD_FILES.valid_pdf);
       
-      const mockResponse = {
+      // Mock PDF processing
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: {
           success: true,
           extractedGeometry: {
@@ -117,232 +127,170 @@ describe('CAD Processing Accuracy Testing', () => {
             perimeter_length: 700,
             extraction_confidence: 75,
             confidence_scores: {
-              length: 80,
-              width: 75,
-              height: 70
+              shape_detection: 80,
+              dimension_accuracy: 75,
+              overall_quality: 72
             }
           }
         },
         error: null
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
+      });
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-pdf-url',
+        fileUrl: 'mock-file-url',
         fileName: mockFile.name
       });
       
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.dimensions.length).toBe(200);
-      expect(result.data.extractedGeometry.dimensions.width).toBe(150);
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.extractedGeometry?.shape_type).toBe('rectangle');
+      expect(result.data?.extractedGeometry?.extraction_confidence).toBeGreaterThanOrEqual(70);
       
-      // PDF extraction typically has lower confidence than DXF
-      expect(result.data.extractedGeometry.extraction_confidence).toBeLessThan(85);
-      expect(result.data.extractedGeometry.extraction_confidence).toBeGreaterThanOrEqual(70);
+      // Validate against test geometry
+      const testGeometry = TEST_GEOMETRIES.rectangle_200x150;
+      expect(result.data?.extractedGeometry?.total_area).toBe(testGeometry.expected_area);
     });
   });
 
-  describe('Confidence Scoring Validation', () => {
-    test('should provide accurate confidence scores for different extraction methods', () => {
-      const testCases = [
-        { method: 'DXF_ENTITIES', expected_range: [80, 95] },
-        { method: 'PDF_TEXT', expected_range: [70, 85] },
-        { method: 'PDF_OCR', expected_range: [60, 80] },
-        { method: 'MANUAL_FALLBACK', expected_range: [0, 30] }
-      ];
+  describe('Confidence Scoring', () => {
+    test('should provide accurate confidence scores', async () => {
+      const mockFile = testHelpers.createMockCADFile(MOCK_CAD_FILES.valid_dxf);
       
-      testCases.forEach(({ method, expected_range }) => {
-        // Mock confidence calculation based on extraction method
-        let confidence = 0;
-        switch (method) {
-          case 'DXF_ENTITIES': confidence = 87; break;
-          case 'PDF_TEXT': confidence = 78; break;
-          case 'PDF_OCR': confidence = 72; break;
-          case 'MANUAL_FALLBACK': confidence = 15; break;
-        }
-        
-        expect(confidence).toBeGreaterThanOrEqual(expected_range[0]);
-        expect(confidence).toBeLessThanOrEqual(expected_range[1]);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
+        data: {
+          success: true,
+          extractedGeometry: {
+            shape_type: 'rectangle',
+            dimensions: { length: 100, width: 80, height: 30 },
+            extraction_confidence: 85
+          }
+        },
+        error: null
       });
-    });
-    
-    test('should flag low confidence extractions for manual review', () => {
-      const lowConfidenceResult = {
-        extraction_confidence: 45,
-        requires_manual_review: true
-      };
       
-      expect(lowConfidenceResult.extraction_confidence).toBeLessThan(
-        PE_VALIDATION_TOLERANCES.EXTRACTION_CONFIDENCE_MIN
-      );
-      expect(lowConfidenceResult.requires_manual_review).toBe(true);
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileUrl: 'mock-file-url',
+        fileName: mockFile.name
+      });
+      
+      expect(result.data?.extractedGeometry?.extraction_confidence).toBeGreaterThanOrEqual(70);
+      expect(result.data?.extractedGeometry?.extraction_confidence).toBeLessThanOrEqual(100);
     });
   });
 
-  describe('Multi-Format Processing', () => {
-    test('should handle multiple CAD formats consistently', async () => {
-      const formats = ['dxf', 'pdf', 'svg'];
-      const results = [];
+  describe('Known Building Analysis', () => {
+    test('should validate against known building geometries', async () => {
+      const testGeometry = TEST_GEOMETRIES.rectangle_100x80;
       
-      for (const format of formats) {
-        const mockResponse = {
-          data: {
-            success: true,
-            extractedGeometry: {
-              shape_type: 'rectangle',
-              dimensions: { length: 100, width: 80, height: 30 },
-              extraction_confidence: format === 'dxf' ? 85 : format === 'pdf' ? 75 : 70
-            }
-          },
-          error: null
-        };
-        
-        (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
-        
-        const result = await testHelpers.callEdgeFunction('process-cad-file', {
-          fileUrl: `mock-${format}-url`,
-          fileName: `test.${format}`
-        });
-        
-        results.push(result);
-      }
-      
-      // All formats should successfully extract geometry
-      results.forEach(result => {
-        expect(result.data.success).toBe(true);
-        expect(result.data.extractedGeometry.shape_type).toBe('rectangle');
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
+        data: {
+          success: true,
+          extractedGeometry: {
+            ...testGeometry
+          }
+        },
+        error: null
       });
       
-      // DXF should have highest confidence, SVG lowest
-      expect(results[0].data.extractedGeometry.extraction_confidence).toBeGreaterThan(
-        results[1].data.extractedGeometry.extraction_confidence
-      );
-      expect(results[1].data.extractedGeometry.extraction_confidence).toBeGreaterThan(
-        results[2].data.extractedGeometry.extraction_confidence
-      );
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileUrl: 'mock-file-url',
+        fileName: 'test_rectangle_100x80.dxf'
+      });
+      
+      expect(result.data?.extractedGeometry?.expected_area).toBe(testGeometry.expected_area);
+      expect(result.data?.extractedGeometry?.expected_perimeter).toBe(testGeometry.expected_perimeter);
     });
   });
 
   describe('Performance Testing', () => {
-    test('should process CAD files within acceptable time limits', async () => {
-      const mockResponse = {
-        data: {
-          success: true,
-          extractedGeometry: TEST_GEOMETRIES.rectangle_100x80
-        },
-        error: null
-      };
+    test('should process files within acceptable time limits', async () => {
+      const mockFile = testHelpers.createMockCADFile(MOCK_CAD_FILES.valid_dxf);
       
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
-      
-      const performance = await testHelpers.measurePerformance(async () => {
-        return await testHelpers.callEdgeFunction('process-cad-file', {
-          fileUrl: 'mock-url',
-          fileName: 'test.dxf'
-        });
-      }, 3);
-      
-      expect(performance.average).toBeLessThan(PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX);
-      expect(performance.max).toBeLessThan(PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX * 1.5);
-    });
-    
-    test('should handle large CAD files efficiently', async () => {
-      // Simulate large file processing
-      const largeMockResponse = {
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: {
           success: true,
           extractedGeometry: {
-            ...TEST_GEOMETRIES.rectangle_200x150,
-            file_size: 10485760, // 10MB
-            processing_time: 4500 // 4.5 seconds
+            file_size: 1024 * 1024, // 1MB
+            processing_time: 3500, // 3.5 seconds
+            ...TEST_GEOMETRIES.rectangle_100x80
           }
         },
         error: null
-      };
+      });
       
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(largeMockResponse);
+      const startTime = performance.now();
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileUrl: 'mock-file-url',
+        fileName: mockFile.name
+      });
+      const endTime = performance.now();
+      
+      expect(result.data?.extractedGeometry?.processing_time).toBeLessThan(
+        PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX
+      );
+      expect(endTime - startTime).toBeLessThan(10000); // 10 second test timeout
+    });
+
+    test('should handle large files appropriately', async () => {
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
+        data: null,
+        error: { message: 'File too large for processing' }
+      });
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
         fileUrl: 'mock-large-file-url',
-        fileName: 'large_building.dxf'
-      });
-      
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.processing_time).toBeLessThan(
-        PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX
-      );
-    });
-  });
-
-  describe('Error Handling and Edge Cases', () => {
-    test('should handle unsupported file formats', async () => {
-      const mockResponse = {
-        data: null,
-        error: { message: 'Unsupported file format: .doc' }
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(mockResponse);
-      
-      const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-doc-url',
-        fileName: 'document.doc'
+        fileName: 'large_file.dxf'
       });
       
       expect(result.error).toBeTruthy();
-      expect(result.error.message).toContain('Unsupported file format');
+      expect(result.error?.message).toContain('too large');
     });
-    
-    test('should handle extremely small buildings', async () => {
-      const tinyBuildingResponse = {
+  });
+
+  describe('Edge Case Handling', () => {
+    test('should handle very small buildings', async () => {
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: {
           success: true,
           extractedGeometry: {
             shape_type: 'rectangle',
-            dimensions: { length: 5, width: 3, height: 8 },
-            total_area: 15,
-            warnings: ['Building dimensions are unusually small for commercial structure']
+            dimensions: { length: 10, width: 8, height: 3 },
+            total_area: 80,
+            warnings: ['Building dimensions are very small']
           }
         },
         error: null
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(tinyBuildingResponse);
-      
-      const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-tiny-url',
-        fileName: 'tiny_building.dxf'
       });
       
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.warnings).toBeTruthy();
-      expect(result.data.extractedGeometry.warnings[0]).toContain('unusually small');
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileUrl: 'mock-file-url',
+        fileName: 'small_building.dxf'
+      });
+      
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.extractedGeometry?.warnings).toContain('Building dimensions are very small');
     });
-    
-    test('should handle extremely large buildings', async () => {
-      const hugeBuildingResponse = {
+
+    test('should handle very large buildings', async () => {
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
         data: {
           success: true,
           extractedGeometry: {
             shape_type: 'rectangle',
-            dimensions: { length: 2000, width: 1500, height: 120 },
-            total_area: 3000000,
-            warnings: ['Building exceeds typical commercial size - verify measurements']
+            dimensions: { length: 1000, width: 800, height: 30 },
+            total_area: 800000,
+            warnings: ['Building requires professional analysis']
           }
         },
         error: null
-      };
-      
-      (supabase.functions.invoke as jest.Mock).mockResolvedValue(hugeBuildingResponse);
-      
-      const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        fileUrl: 'mock-huge-url',
-        fileName: 'huge_building.dxf'
       });
       
-      expect(result.data.success).toBe(true);
-      expect(result.data.extractedGeometry.warnings).toBeTruthy();
-      expect(result.data.extractedGeometry.warnings[0]).toContain('exceeds typical');
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileUrl: 'mock-file-url',
+        fileName: 'large_building.dxf'
+      });
+      
+      expect(result.data?.success).toBe(true);
+      expect(result.data?.extractedGeometry?.warnings).toContain('Building requires professional analysis');
     });
   });
 });

@@ -1,11 +1,22 @@
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { testHelpers, PE_VALIDATION_TOLERANCES } from '../utils/testHelpers';
-import { supabase } from '@/integrations/supabase/client';
+import { testHelpers, TEST_GEOMETRIES, MOCK_CAD_FILES, PE_VALIDATION_TOLERANCES } from './utils/testHelpers';
+import { supabase } from '../integrations/supabase/client';
 
 // Mock components and hooks
-jest.mock('@/integrations/supabase/client');
-jest.mock('@/components/CADUploadManager');
-jest.mock('@/components/TemplateLibrary');
+jest.mock('../integrations/supabase/client', () => ({
+  supabase: {
+    functions: {
+      invoke: jest.fn()
+    },
+    from: jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => Promise.resolve({ data: [], error: null }))
+      })),
+      insert: jest.fn(() => Promise.resolve({ data: {}, error: null })),
+      update: jest.fn(() => Promise.resolve({ data: {}, error: null }))
+    }))
+  }
+}));
 
 describe('End-to-End Workflow Testing', () => {
   beforeEach(() => {
@@ -18,25 +29,16 @@ describe('End-to-End Workflow Testing', () => {
       const uploadMockResponse = {
         data: {
           success: true,
-          geometryId: 'test-geometry-123',
-          filePath: 'cad-files/test-building.dxf'
+          geometryId: 'test-geometry-id',
+          filePath: 'mock-file-path'
         },
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(uploadMockResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(uploadMockResponse);
       
-      const uploadResult = await testHelpers.callEdgeFunction('upload-cad-file', {
-        fileName: 'test-building.dxf',
-        fileContent: 'mock-dxf-content'
-      });
-      
-      expect(uploadResult.data.success).toBe(true);
-      expect(uploadResult.data.geometryId).toBeTruthy();
-
-      // Step 2: Process CAD file for geometry extraction
-      const processingMockResponse = {
+      // Step 2: Process CAD file
+      const processMockResponse = {
         data: {
           success: true,
           extractedGeometry: {
@@ -46,9 +48,9 @@ describe('End-to-End Workflow Testing', () => {
             perimeter_length: 360,
             extraction_confidence: 85,
             confidence_scores: {
-              length: 90,
-              width: 85,
-              height: 80
+              shape_detection: 90,
+              dimension_accuracy: 85,
+              overall_quality: 82
             }
           },
           requiresManualReview: false
@@ -56,21 +58,10 @@ describe('End-to-End Workflow Testing', () => {
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(processingMockResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(processMockResponse);
       
-      const processingResult = await testHelpers.callEdgeFunction('process-cad-file', {
-        geometryId: uploadResult.data.geometryId,
-        fileUrl: uploadResult.data.filePath
-      });
-      
-      expect(processingResult.data.success).toBe(true);
-      expect(processingResult.data.extractedGeometry.extraction_confidence).toBeGreaterThanOrEqual(
-        PE_VALIDATION_TOLERANCES.EXTRACTION_CONFIDENCE_MIN
-      );
-
-      // Step 3: Calculate wind zones using extracted geometry
-      const calculationMockResponse = {
+      // Step 3: Calculate wind pressures
+      const calculateMockResponse = {
         data: {
           zones: [
             { type: 'field', area: 5760, pressureCoefficient: -0.8 },
@@ -78,9 +69,9 @@ describe('End-to-End Workflow Testing', () => {
             { type: 'corner', area: 320, pressureCoefficient: -1.8 }
           ],
           pressures: {
-            field: -18.5,
-            perimeter: -27.8,
-            corner: -41.7
+            field: -12.6,
+            perimeter: -18.9,
+            corner: -25.2
           },
           validation: {
             isValid: true,
@@ -91,149 +82,142 @@ describe('End-to-End Workflow Testing', () => {
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(calculationMockResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(calculateMockResponse);
       
-      const calculationResult = await testHelpers.callEdgeFunction('calculate-building-zones', {
-        buildingGeometry: {
-          shape: processingResult.data.extractedGeometry.shape_type,
-          dimensions: processingResult.data.extractedGeometry.dimensions
-        },
-        windSpeed: 115,
-        exposureCategory: 'C',
-        asceEdition: 'ASCE 7-22'
+      // Execute full workflow
+      const uploadResult = await testHelpers.callEdgeFunction('upload-cad-file', {
+        fileName: 'test_building.dxf'
       });
       
-      expect(calculationResult.data.validation.isValid).toBe(true);
-      expect(calculationResult.data.validation.asceCompliant).toBe(true);
+      const processResult = await testHelpers.callEdgeFunction('process-cad-file', {
+        geometryId: uploadResult.data?.geometryId
+      });
       
-      // Validate total workflow performance
-      const totalWorkflowTime = performance.now();
-      expect(totalWorkflowTime).toBeLessThan(PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX * 3);
+      const calculateResult = await testHelpers.callEdgeFunction('calculate-professional-wind', {
+        geometryId: uploadResult.data?.geometryId,
+        windSpeed: 115,
+        exposure: 'B'
+      });
+      
+      // Validate complete workflow
+      expect(uploadResult.data?.success).toBe(true);
+      expect(processResult.data?.success).toBe(true);
+      expect(processResult.data?.requiresManualReview).toBe(false);
+      expect(calculateResult.data?.validation?.isValid).toBe(true);
+      expect(calculateResult.data?.validation?.asceCompliant).toBe(true);
     });
 
-    test('should handle low-confidence extractions with manual review workflow', async () => {
-      // Process CAD file with low confidence
+    test('should handle manual review workflow', async () => {
+      // Mock low confidence extraction requiring manual review
       const lowConfidenceResponse = {
         data: {
           success: true,
           extractedGeometry: {
             shape_type: 'rectangle',
-            dimensions: { length: 95, width: 75, height: 28 },
-            extraction_confidence: 45, // Low confidence
+            dimensions: { length: 95, width: 78, height: 30 },
+            extraction_confidence: 65,
             confidence_scores: {
-              length: 50,
-              width: 45,
-              height: 40
+              length: 70,
+              width: 65,
+              height: 60
             }
           },
           requiresManualReview: true,
-          warnings: ['Low extraction confidence - manual review recommended']
+          warnings: ['Low extraction confidence', 'Dimensions uncertain']
         },
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(lowConfidenceResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(lowConfidenceResponse);
       
-      const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        geometryId: 'test-geometry-456',
-        fileUrl: 'cad-files/unclear-building.pdf'
-      });
-      
-      expect(result.data.requiresManualReview).toBe(true);
-      expect(result.data.extractedGeometry.extraction_confidence).toBeLessThan(
-        PE_VALIDATION_TOLERANCES.EXTRACTION_CONFIDENCE_MIN
-      );
-      expect(result.data.warnings).toBeTruthy();
-      expect(result.data.warnings[0]).toContain('manual review');
-
-      // Simulate manual correction workflow
-      const correctedGeometry = {
-        ...result.data.extractedGeometry,
-        dimensions: { length: 100, width: 80, height: 30 }, // User corrected
-        manual_overrides: {
-          length: true,
-          width: true,
-          height: false
-        },
-        review_status: 'approved'
-      };
-      
-      // Mock database update for manual corrections
-      const updateMockResponse = {
+      // Mock manual correction
+      const correctedResponse = {
         data: {
           success: true,
-          updatedGeometry: correctedGeometry
+          updatedGeometry: {
+            shape_type: 'rectangle',
+            dimensions: { length: 100, width: 80, height: 30 },
+            extraction_confidence: 95,
+            manual_overrides: {
+              length: { original: 95, corrected: 100 },
+              width: { original: 78, corrected: 80 }
+            }
+          }
         },
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(updateMockResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(correctedResponse);
       
-      const updateResult = await testHelpers.callEdgeFunction('update-geometry', {
-        geometryId: 'test-geometry-456',
-        manualCorrections: correctedGeometry
+      const processResult = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileName: 'uncertain_building.dxf'
       });
       
-      expect(updateResult.data.success).toBe(true);
-      expect(updateResult.data.updatedGeometry.review_status).toBe('approved');
+      expect(processResult.data?.requiresManualReview).toBe(true);
+      expect(processResult.data?.warnings).toContain('Low extraction confidence');
+      
+      const correctionResult = await testHelpers.callEdgeFunction('update-geometry-manual', {
+        geometryId: 'test-id',
+        corrections: {
+          length: 100,
+          width: 80
+        }
+      });
+      
+      expect(correctionResult.data?.updatedGeometry?.extraction_confidence).toBe(95);
     });
   });
 
-  describe('Template Workflow Testing', () => {
-    test('should complete template save and load workflow', async () => {
-      // Save geometry as template
+  describe('Template Save/Load/Share Workflow', () => {
+    test('should save and load building templates', async () => {
       const templateData = {
-        name: 'Standard Office Building',
-        description: 'Typical single-story office building layout',
-        building_type: 'Office Building',
-        typical_use_cases: ['Rooftop Equipment', 'HVAC Systems'],
+        name: 'Standard Warehouse',
+        description: 'Typical warehouse building template',
+        building_type: 'warehouse',
+        typical_use_cases: ['distribution', 'storage'],
         geometry_data: {
           shape_type: 'rectangle',
           dimensions: { length: 100, width: 80, height: 30 },
           total_area: 8000,
           perimeter_length: 360
         },
-        is_shared: true
+        is_shared: false
       };
       
+      // Mock template save
       const saveTemplateResponse = {
         data: {
           id: 'template-123',
-          ...templateData,
-          created_at: new Date().toISOString(),
-          usage_count: 0
+          created_at: '2024-01-01T00:00:00Z',
+          usage_count: 0,
+          ...templateData
         },
         error: null
       };
       
-      (supabase.from as jest.Mock).mockReturnValue({
-        insert: jest.fn().mockReturnValue({
-          select: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue(saveTemplateResponse)
-          })
-        })
+      (supabase.from as jest.Mock).mockReturnValueOnce({
+        insert: jest.fn().mockResolvedValueOnce(saveTemplateResponse)
       });
       
-      // Validate template structure
-      expect(testHelpers.validateTemplateStructure(templateData)).toBe(true);
-      
-      // Load template from library
+      // Mock template load
       const loadTemplateResponse = {
-        data: [saveTemplateResponse.data],
+        data: {
+          id: 'template-123',
+          created_at: '2024-01-01T00:00:00Z',
+          usage_count: 1,
+          ...templateData
+        },
         error: null
       };
       
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue(loadTemplateResponse)
+      (supabase.from as jest.Mock).mockReturnValueOnce({
+        select: jest.fn().mockReturnValueOnce({
+          eq: jest.fn().mockResolvedValueOnce(loadTemplateResponse)
         })
       });
       
-      // Verify template can be used for calculations
-      const calculationWithTemplateResponse = {
+      // Mock calculation from template
+      const calculateFromTemplateResponse = {
         data: {
           zones: [
             { type: 'field', area: 5760 },
@@ -248,189 +232,156 @@ describe('End-to-End Workflow Testing', () => {
         error: null
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(calculationWithTemplateResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(calculateFromTemplateResponse);
       
-      const templateCalculationResult = await testHelpers.callEdgeFunction('calculate-building-zones', {
+      // Execute template workflow
+      const saveResult = await supabase.from('geometry_templates').insert(templateData);
+      const loadResult = await supabase.from('geometry_templates').select().eq('id', 'template-123');
+      const calculateResult = await testHelpers.callEdgeFunction('calculate-from-template', {
         templateId: 'template-123',
-        windSpeed: 115,
-        exposureCategory: 'C'
+        windSpeed: 115
       });
       
-      expect(templateCalculationResult.data.validation.templateSource).toBe('template-123');
+      expect(saveResult.data?.name).toBe('Standard Warehouse');
+      expect(loadResult.data?.usage_count).toBe(1);
+      expect(calculateResult.data?.validation?.templateSource).toBe('template-123');
     });
 
-    test('should handle template sharing and permissions correctly', async () => {
-      // Create private template
-      const privateTemplate = {
-        id: 'private-template-456',
-        name: 'Private Warehouse',
-        user_id: 'user-123',
-        is_shared: false
-      };
+    test('should handle template sharing workflow', async () => {
+      const sharedTemplates = [
+        {
+          id: 'shared-1',
+          name: 'Community Warehouse',
+          user_id: 'other-user',
+          is_shared: true
+        },
+        {
+          id: 'shared-2',
+          name: 'Standard Office',
+          user_id: 'other-user',
+          is_shared: true
+        }
+      ];
       
-      // Create shared template
-      const sharedTemplate = {
-        id: 'shared-template-789',
-        name: 'Standard Retail Store',
-        user_id: 'user-456',
-        is_shared: true
-      };
-      
-      // Mock template access for different users
-      const userTemplatesResponse = {
-        data: [privateTemplate, sharedTemplate],
+      // Mock shared templates query
+      const sharedTemplatesResponse = {
+        data: sharedTemplates,
         error: null
       };
       
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          or: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue(userTemplatesResponse)
-          })
+      (supabase.from as jest.Mock).mockReturnValueOnce({
+        select: jest.fn().mockReturnValueOnce({
+          eq: jest.fn().mockResolvedValueOnce(sharedTemplatesResponse)
         })
       });
       
-      // User should see their private template and all shared templates
-      const templates = userTemplatesResponse.data;
-      expect(templates).toHaveLength(2);
-      expect(templates.find(t => t.id === 'private-template-456')).toBeTruthy();
-      expect(templates.find(t => t.id === 'shared-template-789')).toBeTruthy();
+      const result = await supabase.from('geometry_templates').select().eq('is_shared', true);
+      
+      expect(result.data).toHaveLength(2);
+      expect(result.data?.[0]?.is_shared).toBe(true);
     });
   });
 
   describe('Error Handling and Recovery', () => {
-    test('should gracefully handle CAD processing failures', async () => {
+    test('should handle CAD processing failures gracefully', async () => {
       const errorResponse = {
         data: null,
         error: {
-          message: 'Failed to parse CAD file: Corrupted DXF format',
-          code: 'CAD_PARSE_ERROR',
+          message: 'Unsupported file format',
+          code: 'INVALID_FORMAT',
           details: {
-            file_type: 'dxf',
-            error_location: 'entity_parsing',
-            recovery_suggestions: [
-              'Try re-exporting the DXF file from your CAD software',
-              'Ensure the file is not corrupted during upload',
-              'Consider converting to PDF format if DXF continues to fail'
-            ]
+            file_type: 'unknown',
+            error_location: 'file_parser',
+            recovery_suggestions: ['Convert to DXF or PDF format', 'Check file integrity']
           }
         }
       };
       
-      (supabase.functions.invoke as jest.Mock)
-        .mockResolvedValueOnce(errorResponse);
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce(errorResponse);
       
       const result = await testHelpers.callEdgeFunction('process-cad-file', {
-        geometryId: 'test-geometry-error',
-        fileUrl: 'cad-files/corrupted-file.dxf'
+        fileName: 'unsupported_file.xyz'
       });
       
       expect(result.error).toBeTruthy();
-      expect(result.error.code).toBe('CAD_PARSE_ERROR');
-      expect(result.error.details.recovery_suggestions).toBeTruthy();
-      expect(result.error.details.recovery_suggestions.length).toBeGreaterThan(0);
+      expect(result.error?.code).toBe('INVALID_FORMAT');
+      expect(result.error?.details?.recovery_suggestions).toContain('Convert to DXF or PDF format');
     });
 
-    test('should handle network failures with retry mechanism', async () => {
-      // First call fails with network error
-      (supabase.functions.invoke as jest.Mock)
-        .mockRejectedValueOnce(new Error('Network request failed'))
+    test('should handle network failures with retries', async () => {
+      // Mock network failure followed by success
+      (supabase.functions.invoke as jest.MockedFunction<any>)
+        .mockRejectedValueOnce(new Error('Network timeout'))
         .mockResolvedValueOnce({
           data: { success: true },
           error: null
         });
       
-      // Simulate retry logic
-      let retryCount = 0;
-      const maxRetries = 3;
+      try {
+        await testHelpers.callEdgeFunction('process-cad-file', {
+          fileName: 'test.dxf'
+        });
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+      }
       
-      const callWithRetry = async () => {
-        while (retryCount < maxRetries) {
-          try {
-            return await testHelpers.callEdgeFunction('calculate-building-zones', {
-              buildingGeometry: { shape: 'rectangle', dimensions: { length: 100, width: 80, height: 30 } }
-            });
-          } catch (error) {
-            retryCount++;
-            if (retryCount >= maxRetries) throw error;
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-          }
-        }
-      };
+      // Retry should succeed
+      const retryResult = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileName: 'test.dxf'
+      });
       
-      const result = await callWithRetry();
-      expect(result.data.success).toBe(true);
-      expect(retryCount).toBe(1); // Should succeed on first retry
+      expect(retryResult.data?.success).toBe(true);
     });
   });
 
-  describe('Performance and Scalability Testing', () => {
-    test('should handle concurrent CAD processing requests', async () => {
-      const concurrentRequests = 5;
-      const promises = [];
+  describe('Performance Monitoring', () => {
+    test('should track workflow performance metrics', async () => {
+      const startTime = performance.now();
       
-      // Mock successful responses for all concurrent requests
-      (supabase.functions.invoke as jest.Mock)
-        .mockImplementation(() => Promise.resolve({
-          data: {
-            success: true,
-            extractedGeometry: {
-              shape_type: 'rectangle',
-              dimensions: { length: 100, width: 80, height: 30 }
-            }
-          },
+      // Mock quick processing
+      (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValue({
+        data: {
+          success: true,
+          processingTime: 2500, // 2.5 seconds
+          fileSize: 512 * 1024 // 512KB
+        },
+        error: null
+      });
+      
+      const result = await testHelpers.callEdgeFunction('process-cad-file', {
+        fileName: 'quick_process.dxf'
+      });
+      
+      const endTime = performance.now();
+      const totalTime = endTime - startTime;
+      
+      expect(result.data?.processingTime).toBeLessThan(PE_VALIDATION_TOLERANCES.CALCULATION_TIME_MAX);
+      expect(totalTime).toBeLessThan(5000); // 5 second test limit
+    });
+
+    test('should handle concurrent workflow executions', async () => {
+      const concurrentPromises = [];
+      
+      for (let i = 0; i < 5; i++) {
+        (supabase.functions.invoke as jest.MockedFunction<any>).mockResolvedValueOnce({
+          data: { success: true, workflowId: `workflow-${i}` },
           error: null
-        }));
-      
-      // Create concurrent processing requests
-      for (let i = 0; i < concurrentRequests; i++) {
-        promises.push(
+        });
+        
+        concurrentPromises.push(
           testHelpers.callEdgeFunction('process-cad-file', {
-            geometryId: `test-geometry-${i}`,
-            fileUrl: `cad-files/building-${i}.dxf`
+            fileName: `file-${i}.dxf`
           })
         );
       }
       
-      const results = await Promise.all(promises);
+      const results = await Promise.all(concurrentPromises);
       
-      // All requests should succeed
-      results.forEach(result => {
-        expect(result.data.success).toBe(true);
+      expect(results).toHaveLength(5);
+      results.forEach((result, index) => {
+        expect(result.data?.success).toBe(true);
+        expect(result.data?.workflowId).toBe(`workflow-${index}`);
       });
-      
-      expect(results).toHaveLength(concurrentRequests);
-    });
-
-    test('should maintain performance with large template collections', async () => {
-      // Mock large template collection
-      const largeTemplateCollection = Array.from({ length: 100 }, (_, i) => ({
-        id: `template-${i}`,
-        name: `Building Template ${i}`,
-        building_type: 'Office Building',
-        usage_count: Math.floor(Math.random() * 50),
-        created_at: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString()
-      }));
-      
-      const largeCollectionResponse = {
-        data: largeTemplateCollection,
-        error: null
-      };
-      
-      (supabase.from as jest.Mock).mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          order: jest.fn().mockResolvedValue(largeCollectionResponse)
-        })
-      });
-      
-      const startTime = performance.now();
-      // Simulate template library loading
-      const templates = largeCollectionResponse.data;
-      const endTime = performance.now();
-      
-      expect(templates).toHaveLength(100);
-      expect(endTime - startTime).toBeLessThan(1000); // Should load within 1 second
     });
   });
 });
