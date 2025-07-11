@@ -17,6 +17,7 @@ import { Calculator, Download, Save, Wind, Building, MapPin, Search, Shield, Awa
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CADUploadManager } from "@/components/CADUploadManager";
+import ProfessionalWindTab from "@/components/ProfessionalWindTab";
 
 interface ProfessionalCalculationForm {
   // Basic project information
