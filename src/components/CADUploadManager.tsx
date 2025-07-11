@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { Upload, FileText, AlertCircle, CheckCircle, Loader2, X } from "lucide-react";
+import { Upload, FileText, AlertCircle, CheckCircle, Loader2, X, Save, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -14,6 +14,9 @@ import {
   deleteCADFile,
   CAD_CONFIG 
 } from "@/lib/cadFileManager";
+import GeometryReviewPanel from "@/components/GeometryReviewPanel";
+import SaveTemplateDialog from "@/components/SaveTemplateDialog";
+import WorkflowProgress from "@/components/WorkflowProgress";
 
 interface GeometryData {
   shape_type: 'rectangle' | 'l_shape' | 'complex';
@@ -24,12 +27,18 @@ interface GeometryData {
   zone_calculations?: any;
   total_area?: number;
   perimeter_length?: number;
+  extraction_confidence?: number;
+  confidence_scores?: {
+    [key: string]: number;
+  };
 }
 
 interface CADUploadManagerProps {
   onGeometryExtracted: (geometry: GeometryData, geometryId: string) => void;
   onError: (error: string) => void;
   existingGeometry?: GeometryData & { id: string; name: string; cad_file_url?: string };
+  enableTemplateFeatures?: boolean;
+  onTemplateCreated?: (templateId: string) => void;
 }
 
 interface UploadProgress {
@@ -46,23 +55,27 @@ interface FileValidation {
 export function CADUploadManager({ 
   onGeometryExtracted, 
   onError, 
-  existingGeometry 
+  existingGeometry,
+  enableTemplateFeatures = false,
+  onTemplateCreated
 }: CADUploadManagerProps) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [processingResults, setProcessingResults] = useState<any>(null);
+  const [currentStep, setCurrentStep] = useState<string>('upload');
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [approvedGeometry, setApprovedGeometry] = useState<GeometryData | null>(null);
   const { toast } = useToast();
 
-  // Mock CAD processing (in real implementation, this would call a processing service)
+  // Enhanced CAD processing with confidence scores
   const processCADFile = useCallback(async (geometryId: string, fileName: string): Promise<GeometryData> => {
-    // Update status to processing
+    setCurrentStep('process');
     await updateProcessingStatus(geometryId, 'processing');
     
-    // Simulate processing time
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Mock geometry extraction based on file type
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     let mockGeometry: GeometryData;
     
@@ -71,60 +84,33 @@ export function CADUploadManager({
         case 'dwg':
         case 'dxf':
           mockGeometry = {
-            shape_type: 'complex',
-            dimensions: {
-              length: 200,
-              width: 150,
-              height: 30,
-              extractedFromCAD: true
-            },
-            zone_calculations: {
-              field_zone: { area: 25000, gcp: -0.9 },
-              perimeter_zone: { area: 5000, gcp: -1.4 },
-              corner_zones: { area: 1000, gcp: -2.0 }
-            },
+            shape_type: 'rectangle',
+            dimensions: { length: 200, width: 150, height: 30 },
             total_area: 30000,
-            perimeter_length: 700
+            perimeter_length: 700,
+            extraction_confidence: 85,
+            confidence_scores: { length: 90, width: 85, height: 80 }
           };
           break;
         case 'pdf':
           mockGeometry = {
             shape_type: 'rectangle',
-            dimensions: {
-              length: 180,
-              width: 120,
-              height: 25,
-              extractedFromPDF: true
-            },
+            dimensions: { length: 180, width: 120, height: 25 },
             total_area: 21600,
-            perimeter_length: 600
-          };
-          break;
-        case 'svg':
-          mockGeometry = {
-            shape_type: 'l_shape',
-            dimensions: {
-              length1: 200,
-              width1: 100,
-              length2: 100,
-              width2: 80,
-              height: 28,
-              extractedFromSVG: true
-            },
-            total_area: 28000,
-            perimeter_length: 760
+            perimeter_length: 600,
+            extraction_confidence: 75,
+            confidence_scores: { length: 80, width: 75, height: 70 }
           };
           break;
         default:
-          throw new Error('Unsupported file format for processing');
+          throw new Error('Unsupported file format');
       }
       
-      // Update status to completed with processed data
+      setCurrentStep('review');
+      setIsReviewMode(true);
       await updateProcessingStatus(geometryId, 'completed', undefined, mockGeometry);
-      
       return mockGeometry;
     } catch (error) {
-      // Update status to failed
       await updateProcessingStatus(geometryId, 'failed', error instanceof Error ? error.message : 'Processing failed');
       throw error;
     }
@@ -352,40 +338,50 @@ export function CADUploadManager({
           </div>
         )}
 
-        {/* Processing Results */}
-        {processingResults && (
-          <Alert>
-            <CheckCircle className="h-4 w-4" />
-            <AlertDescription>
-              <div className="space-y-2">
-                <div>
-                  <strong>Geometry extracted from:</strong> {processingResults.fileName}
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <strong>Shape:</strong> {processingResults.geometry.shape_type.replace('_', ' ')}
-                  </div>
-                  <div>
-                    <strong>Total Area:</strong> {processingResults.geometry.total_area?.toLocaleString()} sq ft
-                  </div>
-                  <div>
-                    <strong>Perimeter:</strong> {processingResults.geometry.perimeter_length?.toLocaleString()} ft
-                  </div>
-                  <div>
-                    <strong>Dimensions:</strong> 
-                    {Object.entries(processingResults.geometry.dimensions)
-                      .filter(([key]) => !key.includes('extracted'))
-                      .map(([key, value]) => `${key}: ${value}`)
-                      .join(', ')
-                    }
-                  </div>
-                </div>
-                <Button variant="outline" size="sm" onClick={clearUpload} className="mt-2">
-                  Upload Another File
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
+        {/* Workflow Progress */}
+        {uploadProgress && (
+          <WorkflowProgress 
+            currentStep={currentStep}
+            className="mb-4"
+          />
+        )}
+
+        {/* Geometry Review Panel */}
+        {isReviewMode && processingResults && (
+          <GeometryReviewPanel
+            cadFileUrl={processingResults.filePath}
+            fileName={processingResults.fileName}
+            extractedGeometry={processingResults.geometry}
+            onApprove={(geometry) => {
+              setApprovedGeometry(geometry);
+              setCurrentStep('approve');
+              onGeometryExtracted(geometry, processingResults.geometryId);
+              if (enableTemplateFeatures) {
+                setShowSaveTemplate(true);
+              }
+            }}
+            onEdit={(editedGeometry) => {
+              setProcessingResults(prev => ({ ...prev, geometry: editedGeometry }));
+            }}
+            onReject={() => {
+              setIsReviewMode(false);
+              clearUpload();
+            }}
+            className="mb-4"
+          />
+        )}
+
+        {/* Save Template Dialog */}
+        {showSaveTemplate && approvedGeometry && (
+          <SaveTemplateDialog
+            open={showSaveTemplate}
+            onOpenChange={setShowSaveTemplate}
+            geometry={approvedGeometry}
+            onSave={(templateId) => {
+              onTemplateCreated?.(templateId);
+              setCurrentStep('calculate');
+            }}
+          />
         )}
 
         {/* Help Text */}

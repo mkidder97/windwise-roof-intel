@@ -130,57 +130,83 @@ export type Database = {
       }
       building_geometries: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           cad_file_url: string | null
           created_at: string
           dimensions: Json
+          extraction_confidence: number | null
           file_size: number | null
           file_type: string | null
           id: string
+          manual_overrides: Json | null
           name: string
           perimeter_length: number | null
           processed_at: string | null
           processing_error: string | null
           processing_status: string | null
+          review_status: string | null
           shape_type: string
+          template_source: string | null
           total_area: number | null
           updated_at: string
           zone_calculations: Json | null
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           cad_file_url?: string | null
           created_at?: string
           dimensions?: Json
+          extraction_confidence?: number | null
           file_size?: number | null
           file_type?: string | null
           id?: string
+          manual_overrides?: Json | null
           name: string
           perimeter_length?: number | null
           processed_at?: string | null
           processing_error?: string | null
           processing_status?: string | null
+          review_status?: string | null
           shape_type: string
+          template_source?: string | null
           total_area?: number | null
           updated_at?: string
           zone_calculations?: Json | null
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           cad_file_url?: string | null
           created_at?: string
           dimensions?: Json
+          extraction_confidence?: number | null
           file_size?: number | null
           file_type?: string | null
           id?: string
+          manual_overrides?: Json | null
           name?: string
           perimeter_length?: number | null
           processed_at?: string | null
           processing_error?: string | null
           processing_status?: string | null
+          review_status?: string | null
           shape_type?: string
+          template_source?: string | null
           total_area?: number | null
           updated_at?: string
           zone_calculations?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "building_geometries_template_source_fkey"
+            columns: ["template_source"]
+            isOneToOne: false
+            referencedRelation: "geometry_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       building_templates: {
         Row: {
@@ -544,6 +570,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      geometry_templates: {
+        Row: {
+          building_type: string | null
+          created_at: string | null
+          description: string | null
+          geometry_data: Json
+          id: string
+          is_shared: boolean | null
+          name: string
+          thumbnail_url: string | null
+          typical_use_cases: string[] | null
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string | null
+        }
+        Insert: {
+          building_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          geometry_data: Json
+          id?: string
+          is_shared?: boolean | null
+          name: string
+          thumbnail_url?: string | null
+          typical_use_cases?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          building_type?: string | null
+          created_at?: string | null
+          description?: string | null
+          geometry_data?: Json
+          id?: string
+          is_shared?: boolean | null
+          name?: string
+          thumbnail_url?: string | null
+          typical_use_cases?: string[] | null
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       internal_pressure_coefficients: {
         Row: {
