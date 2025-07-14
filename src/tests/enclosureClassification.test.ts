@@ -15,7 +15,7 @@ describe('Building Enclosure Classification', () => {
       expect(result.type).toBe('enclosed');
       expect(result.totalOpeningArea).toBe(80);
       expect(result.windwardOpeningArea).toBe(30);
-      expect(result.percentOpenArea).toBeCloseTo(0.8, 1);
+      expect(result.openingRatio).toBeCloseTo(0.008, 3);
       
       // ASCE 7-22 Table 26.13-1 values for enclosed buildings
       expect(result.GCpi_positive).toBe(0.18);
@@ -54,7 +54,7 @@ describe('Building Enclosure Classification', () => {
       const result = classifyBuildingEnclosure(wallArea, openings, false);
       
       expect(result.type).toBe('partially_enclosed');
-      expect(result.percentOpenArea).toBeGreaterThan(1.0); // > 1% threshold
+      expect(result.openingRatio).toBeGreaterThan(0.01);
       expect(result.totalOpeningArea).toBeGreaterThan(Math.max(4, wallArea * 0.01));
     });
 
@@ -71,7 +71,7 @@ describe('Building Enclosure Classification', () => {
       const result = classifyBuildingEnclosure(wallArea, openings, false);
       
       expect(result.type).toBe('open');
-      expect(result.percentOpenArea).toBeGreaterThan(80);
+      expect(result.openingRatio).toBeGreaterThan(0.8);
       expect(result.totalOpeningArea).toBe(3200);
     });
   });
@@ -152,7 +152,7 @@ describe('Building Enclosure Classification', () => {
       expect(result.type).toBe('enclosed');
       expect(result.totalOpeningArea).toBe(0);
       expect(result.windwardOpeningArea).toBe(0);
-      expect(result.percentOpenArea).toBe(0);
+      expect(result.openingRatio).toBe(0);
       expect(result.GCpi_positive).toBe(0.18);
       expect(result.GCpi_negative).toBe(-0.18);
     });
@@ -196,7 +196,7 @@ describe('Building Enclosure Classification', () => {
       const result = classifyBuildingEnclosure(wallArea, openings, false);
       
       // At 1% threshold, should be partially enclosed if other conditions are met
-      expect(result.percentOpenArea).toBeCloseTo(1.5, 1);
+      expect(result.openingRatio).toBeCloseTo(0.015, 3);
       expect(result.type).toBe('partially_enclosed');
     });
 
@@ -212,9 +212,9 @@ describe('Building Enclosure Classification', () => {
       const result = classifyBuildingEnclosure(wallArea, openings, false);
       
       expect(result.type).toBe('partially_enclosed');
-      expect(result.reasoning).toEqual(
+      expect(result.warnings).toEqual(
         expect.arrayContaining([
-          expect.stringContaining('Windward opening area')
+          expect.stringContaining('partially enclosed')
         ])
       );
     });
@@ -259,8 +259,8 @@ describe('Building Enclosure Classification', () => {
         { area: 50, location: 'leeward' as const, type: 'door' as const, isGlazed: false, canFail: false }
       ], false);
       
-      expect(result.reasoning.length).toBeGreaterThan(0);
-      expect(result.reasoning.some(r => r.includes('Windward opening area'))).toBe(true);
+      expect(result.warnings.length).toBeGreaterThan(0);
+      expect(result.warnings.some(r => r.includes('partially enclosed'))).toBe(true);
     });
 
     test('Warnings are generated for critical conditions', () => {

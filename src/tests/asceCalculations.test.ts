@@ -93,7 +93,7 @@ describe('ASCE Wind Calculations', () => {
       expect(result.GCpi_negative).toBe(-0.18);
       expect(result.totalOpeningArea).toBe(225);
       expect(result.windwardOpeningArea).toBe(50);
-      expect(result.percentOpenArea).toBeCloseTo(2.25, 2);
+      expect(result.openingRatio).toBeCloseTo(0.0225, 3);
     });
 
     test('Partially enclosed building classification', () => {
@@ -127,7 +127,7 @@ describe('ASCE Wind Calculations', () => {
       const resultWithFailure = classifyBuildingEnclosure(wallArea, openings, true);
       expect(resultWithFailure.type).toBe('partially_enclosed');
       expect(resultWithFailure.warnings).toContain(
-        'Failure scenario: Large glazed openings may fail, creating partially enclosed condition'
+        'Glazing failure scenario considered - building classified as partially enclosed'
       );
     });
 
@@ -142,7 +142,7 @@ describe('ASCE Wind Calculations', () => {
       const result = classifyBuildingEnclosure(wallArea, openings, false);
       
       expect(result.type).toBe('open');
-      expect(result.percentOpenArea).toBeGreaterThan(80);
+      expect(result.openingRatio).toBeGreaterThan(0.8);
     });
   });
 
@@ -152,7 +152,13 @@ describe('ASCE Wind Calculations', () => {
       const enclosedBuilding = { 
         GCpi_positive: 0.18, 
         GCpi_negative: -0.18,
-        type: 'enclosed' as const
+        type: 'enclosed' as const,
+        openingRatio: 0.01,
+        hasDominantOpening: false,
+        failureScenarioConsidered: false,
+        windwardOpeningArea: 50,
+        totalOpeningArea: 100,
+        warnings: []
       };
       
       const result = calculateNetPressure(externalPressure, enclosedBuilding);
@@ -169,7 +175,13 @@ describe('ASCE Wind Calculations', () => {
       const partiallyEnclosed = { 
         GCpi_positive: 0.55, 
         GCpi_negative: -0.55,
-        type: 'partially_enclosed' as const
+        type: 'partially_enclosed' as const,
+        openingRatio: 0.05,
+        hasDominantOpening: true,
+        failureScenarioConsidered: false,
+        windwardOpeningArea: 200,
+        totalOpeningArea: 250,
+        warnings: []
       };
       
       const result = calculateNetPressure(externalPressure, partiallyEnclosed);
@@ -183,11 +195,31 @@ describe('ASCE Wind Calculations', () => {
       const externalPressure = -25.0;
       const qh = 30.0; // velocity pressure
       
-      const enclosed = { GCpi_positive: 0.18, GCpi_negative: -0.18, type: 'enclosed' as const };
-      const partiallyEnclosed = { GCpi_positive: 0.55, GCpi_negative: -0.55, type: 'partially_enclosed' as const };
+      const enclosed = { 
+        GCpi_positive: 0.18, 
+        GCpi_negative: -0.18, 
+        type: 'enclosed' as const,
+        openingRatio: 0.01,
+        hasDominantOpening: false,
+        failureScenarioConsidered: false,
+        windwardOpeningArea: 50,
+        totalOpeningArea: 100,
+        warnings: []
+      };
+      const partiallyEnclosed = { 
+        GCpi_positive: 0.55, 
+        GCpi_negative: -0.55, 
+        type: 'partially_enclosed' as const,
+        openingRatio: 0.05,
+        hasDominantOpening: true,
+        failureScenarioConsidered: false,
+        windwardOpeningArea: 200,
+        totalOpeningArea: 250,
+        warnings: []
+      };
       
-      const netEnclosed = calculateNetPressure(externalPressure, enclosed, qh);
-      const netPartiallyEnclosed = calculateNetPressure(externalPressure, partiallyEnclosed, qh);
+      const netEnclosed = calculateNetPressure(externalPressure, enclosed);
+      const netPartiallyEnclosed = calculateNetPressure(externalPressure, partiallyEnclosed);
       
       // Partially enclosed should have significantly higher net pressures
       expect(Math.abs(netPartiallyEnclosed.controlling)).toBeGreaterThan(Math.abs(netEnclosed.controlling));
@@ -277,7 +309,7 @@ describe('ASCE Wind Calculations', () => {
       const externalPressure = qh * gcp.gcp;
       
       // Net pressure
-      const netPressure = calculateNetPressure(externalPressure, enclosureClass, qh);
+      const netPressure = calculateNetPressure(externalPressure, enclosureClass);
       expect(Math.abs(netPressure.controlling)).toBeGreaterThan(Math.abs(externalPressure));
     });
   });

@@ -18,13 +18,11 @@ interface BuildingOpening {
 
 interface EnclosureClassification {
   type: 'enclosed' | 'partially_enclosed' | 'open';
-  totalWallArea: number;
   totalOpeningArea: number;
   windwardOpeningArea: number;
-  percentOpenArea: number;
+  openingRatio: number;
   GCpi_positive: number;
   GCpi_negative: number;
-  reasoning: string[];
   warnings: string[];
 }
 
@@ -269,11 +267,7 @@ export function BuildingVisualization({
         {/* Enclosure classification details */}
         {enclosureClass && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-              <div>
-                <p className="font-medium">Total Wall Area</p>
-                <p>{enclosureClass.totalWallArea.toFixed(0)} sq ft</p>
-              </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
               <div>
                 <p className="font-medium">Total Opening Area</p>
                 <p>{enclosureClass.totalOpeningArea.toFixed(0)} sq ft</p>
@@ -283,8 +277,8 @@ export function BuildingVisualization({
                 <p>{enclosureClass.windwardOpeningArea.toFixed(0)} sq ft</p>
               </div>
               <div>
-                <p className="font-medium">Percent Open</p>
-                <p>{enclosureClass.percentOpenArea.toFixed(1)}%</p>
+                <p className="font-medium">Opening Ratio</p>
+                <p>{(enclosureClass.openingRatio * 100).toFixed(1)}%</p>
               </div>
             </div>
             
