@@ -1,35 +1,38 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Download, Save, Wind, Building, MapPin, Search, Shield, Award, CheckCircle, AlertTriangle, FileText, Camera, History, TrendingUp, BookOpen, Eye } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { CADUploadManager } from "@/components/CADUploadManager";
-import ProfessionalWindTab from "@/components/ProfessionalWindTab";
-import ReportGenerator from "@/components/ReportGenerator";
-import { useReportContext } from "@/hooks/useReportContext";
+import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Calculator, Download, Save, Wind, Building, MapPin, Search, Shield, Award, CheckCircle, AlertTriangle, FileText, Camera, History, TrendingUp, BookOpen, Eye } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { CADUploadManager } from '@/components/CADUploadManager';
+import ProfessionalWindTab from '@/components/ProfessionalWindTab';
+import ReportGenerator from '@/components/ReportGenerator';
+import { useReportContext } from '@/hooks/useReportContext';
 import { 
-  calculateKz, 
-  calculateEffectiveWindArea, 
-  classifyBuildingEnclosure, 
+  calculateKz,
+  calculateEffectiveWindArea,
+  classifyBuildingEnclosure,
   calculateNetPressure,
   interpolatePressureCoefficient,
   generateCalculationSummary,
-  type EnclosureClassification,
-  type BuildingOpening 
-} from "@/lib/asceCalculations";
+  type BuildingOpening,
+  type EnclosureClassification
+} from '@/lib/asceCalculations';
+import { CalculationWarning } from '@/components/CalculationWarning';
+import { EnclosureInput } from '@/components/EnclosureInput';
+import { validateWindLoadInputs } from '@/utils/windLoadValidation';
 
 interface ProfessionalCalculationForm {
   // Basic project information
