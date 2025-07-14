@@ -16,13 +16,20 @@ import type { ProfessionalCalculationForm, ProfessionalCalculationResults, WindS
 export function useWindCalculations() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [results, setResults] = useState<ProfessionalCalculationResults | null>(null);
+  
+  // Use calculation caching for performance
+  const { calculateWithCache, metrics: cacheMetrics } = useCalculationCache({
+    enableCache: true,
+    customTTL: 1000 * 60 * 30, // 30 minutes
+  });
   const { toast } = useToast();
 
-  const calculateWindPressure = useCallback(async (
+  // Memoized calculation function for performance
+  const performCalculation = useCallback(async (
     data: ProfessionalCalculationForm,
     windSpeedData?: WindSpeedData
   ): Promise<ProfessionalCalculationResults> => {
-    setIsCalculating(true);
+    const stopTiming = performanceMonitor.startTiming('wind_calculation');
     
     try {
       if (data.professionalMode) {
