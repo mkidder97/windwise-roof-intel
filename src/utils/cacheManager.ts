@@ -25,7 +25,7 @@ export class CalculationCacheManager {
       state: formData.state,
       riskCategory: formData.riskCategory,
       // Wind data
-      windSpeed: windSpeedData?.wind_speed || 120,
+      windSpeed: windSpeedData?.value || 120,
       // Professional mode settings
       professionalMode: formData.professionalMode,
       topographicFactor: formData.topographicFactor,

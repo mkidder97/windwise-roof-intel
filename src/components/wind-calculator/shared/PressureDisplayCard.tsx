@@ -81,7 +81,7 @@ const PressureDisplayCard = memo(function PressureDisplayCard({
       case 'corner':
         return 'destructive';
       case 'perimeter':
-        return 'warning';
+        return 'destructive';
       case 'field':
       default:
         return 'secondary';
