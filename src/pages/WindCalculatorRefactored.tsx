@@ -104,7 +104,7 @@ export default function WindCalculatorRefactored() {
 
   const onSubmit = async (data: ProfessionalCalculationForm) => {
     // Validate form
-    const validation = validateForm(data);
+    const validation = await validateForm(data);
     if (!validation.isValid) {
       toast({
         title: "Validation Error",

@@ -128,13 +128,17 @@ export interface ProfessionalParameters {
 
 export interface BuildingOpening {
   id: string;
-  type: 'window' | 'door' | 'vent' | 'other';
+  type: 'window' | 'door' | 'vent' | 'garage';
   width: number;
   height: number;
   area: number;
   location: 'windward' | 'leeward' | 'side';
   glazingType?: 'ordinary' | 'impact_resistant';
   failurePressure?: number;
+  isGlazed: boolean;
+  canFail: boolean;
+  x: number;
+  y: number;
 }
 
 export interface ValidationState {

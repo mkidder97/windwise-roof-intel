@@ -18,7 +18,7 @@ import { WindSpeedInput } from '@/components/forms/WindSpeedInput';
 import { ProfessionalParametersForm } from '@/components/forms/ProfessionalParametersForm';
 import { EnclosureInput } from '@/components/EnclosureInput';
 import { CalculationResults } from '@/components/results/CalculationResults';
-import { ReportGenerator } from '@/components/ReportGenerator';
+import ReportGenerator from '@/components/ReportGenerator';
 
 // New optimized components
 import CalculationProgressBar from '@/components/wind-calculator/shared/CalculationProgressBar';
@@ -127,12 +127,12 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     }
 
     try {
-      const result = await calculateWindPressure(formData, windSpeedData);
+      await calculateWindPressure(formData, windSpeedData);
       setEnclosureClassification(null); // Reset on successful calculation
     } catch (error) {
       console.error('Calculation failed:', error);
     }
-  }, [form, windSpeedData, validateForm, startCalculation, calculateWindPressure]);
+  }, [form, windSpeedData, validateForm, calculateWindPressure]);
 
   // Optimized wind speed lookup
   const handleWindSpeedLookup = useCallback(async () => {
@@ -140,7 +140,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     if (!city || !state) return;
 
     try {
-      const data = await lookupWindSpeed(city, state);
+      const data = await lookupWindSpeed(city, state, form.getValues().asceEdition);
       setWindSpeedData(data);
       form.setValue('customWindSpeed', data.value);
     } catch (error) {
@@ -227,17 +227,18 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                         </TabsList>
 
                         <TabsContent value="basic" className="space-y-4">
-                          <MemoizedBuildingForm {...buildingFormProps} />
-                          <MemoizedWindSpeedInput
-                            form={form}
-                            windSpeedData={windSpeedData}
-                            onLookup={handleWindSpeedLookup}
-                            isLoading={isLookingUp}
+                          <BuildingParametersForm />
+                          <WindSpeedInput
+                            value={windSpeedData || { value: 120, source: 'manual', confidence: 0 }}
+                            location={{ city: form.watch('city'), state: form.watch('state') }}
+                            asceEdition={form.watch('asceEdition')}
+                            onChange={setWindSpeedData}
+                            onValidationChange={() => {}}
                           />
                         </TabsContent>
 
                         <TabsContent value="professional" className="space-y-4">
-                          <MemoizedProfessionalForm form={form} />
+                          <ProfessionalParametersForm />
                         </TabsContent>
 
                         <TabsContent value="enclosure" className="space-y-4">
@@ -272,10 +273,8 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                 {/* Results Panel */}
                 <div className="space-y-6">
                   {results && (
-                    <MemoizedCalculationResults
-                      data={results}
-                      windSpeedData={windSpeedData}
-                      formData={form.getValues()}
+                    <CalculationResults
+                      results={results}
                     />
                   )}
 

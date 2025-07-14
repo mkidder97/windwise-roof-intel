@@ -16,12 +16,6 @@ import type { ProfessionalCalculationForm, ProfessionalCalculationResults, WindS
 export function useWindCalculations() {
   const [isCalculating, setIsCalculating] = useState(false);
   const [results, setResults] = useState<ProfessionalCalculationResults | null>(null);
-  
-  // Use calculation caching for performance
-  const { calculateWithCache, metrics: cacheMetrics } = useCalculationCache({
-    enableCache: true,
-    customTTL: 1000 * 60 * 30, // 30 minutes
-  });
   const { toast } = useToast();
 
   // Memoized calculation function for performance
@@ -29,7 +23,7 @@ export function useWindCalculations() {
     data: ProfessionalCalculationForm,
     windSpeedData?: WindSpeedData
   ): Promise<ProfessionalCalculationResults> => {
-    const stopTiming = performanceMonitor.startTiming('wind_calculation');
+    const startTime = Date.now();
     
     try {
       if (data.professionalMode) {
@@ -203,9 +197,33 @@ export function useWindCalculations() {
         };
       }
     } finally {
-      setIsCalculating(false);
+      const calculationTime = Date.now() - startTime;
+      console.log(`Calculation completed in ${calculationTime}ms`);
     }
   }, [toast]);
+
+  const calculateWindPressure = useCallback(async (
+    formData: ProfessionalCalculationForm,
+    windSpeedData?: WindSpeedData
+  ): Promise<ProfessionalCalculationResults> => {
+    setIsCalculating(true);
+    
+    try {
+      const result = await performCalculation(formData, windSpeedData);
+      setResults(result);
+      return result;
+    } catch (error) {
+      console.error('Wind calculation failed:', error);
+      toast({
+        title: "Calculation Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [performCalculation, toast]);
 
   const setCalculationResults = useCallback((newResults: ProfessionalCalculationResults | null) => {
     setResults(newResults);
