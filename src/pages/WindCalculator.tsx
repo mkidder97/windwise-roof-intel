@@ -225,7 +225,8 @@ export default function WindCalculator() {
         console.log('✅ Found exact wind speed match:', exactMatch.wind_speed, 'mph');
         setWindSpeedValidation({
           isValid: true,
-          source: 'database'
+          source: 'database',
+          confidence: 95
         });
         return exactMatch.wind_speed;
       }
@@ -255,7 +256,7 @@ export default function WindCalculator() {
         setWindSpeedValidation({
           isValid: true,
           source: 'interpolated',
-          nearestCities: nearbyCities
+          confidence: 80
         });
         
         return interpolatedSpeed;
@@ -265,7 +266,8 @@ export default function WindCalculator() {
       console.warn('⚠️ No wind speed data found, using default 120 mph');
       setWindSpeedValidation({
         isValid: false,
-        source: 'default'
+        source: 'default',
+        confidence: 0
       });
       
       return 120;
