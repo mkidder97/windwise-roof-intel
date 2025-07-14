@@ -8,10 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Shield, CheckCircle, XCircle, MapPin, FileText, ExternalLink, Download, Printer } from "lucide-react";
+import { Search, Shield, CheckCircle, XCircle, MapPin, FileText, ExternalLink, Download, Printer, Settings, Wrench } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from 'jspdf';
+import FasteningPatternDisplay from "@/components/FasteningPatternDisplay";
+import InstallationSpecifications from "@/components/InstallationSpecifications";
+import FasteningCalculator from "@/components/FasteningCalculator";
 
 interface SearchForm {
   maxWindPressure: number;
@@ -568,7 +571,15 @@ export default function MaterialFinder() {
                   return (
                     <Card key={system.id} className="shadow-card">
                       <CardContent className="p-6">
-                        <div className="space-y-4">
+                        <Tabs defaultValue="overview" className="w-full">
+                          <TabsList className="grid w-full grid-cols-4">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="fastening">Fastening</TabsTrigger>
+                            <TabsTrigger value="installation">Installation</TabsTrigger>
+                            <TabsTrigger value="calculator">Calculator</TabsTrigger>
+                          </TabsList>
+                          
+                          <TabsContent value="overview" className="space-y-4 mt-6">
                           {/* System Header */}
                           <div className="flex items-start justify-between">
                             <div>
@@ -675,15 +686,79 @@ export default function MaterialFinder() {
                             </div>
                           )}
 
-                          {/* Description */}
-                          {system.description && (
+                            {/* Description */}
+                            {system.description && (
+                              <div className="border-t pt-4">
+                                <p className="text-sm text-muted-foreground">
+                                  {system.description}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Wind Pressure Integration */}
                             <div className="border-t pt-4">
-                              <p className="text-sm text-muted-foreground">
-                                {system.description}
-                              </p>
+                              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                <Shield className="h-4 w-4 text-primary" />
+                                Wind Load Analysis
+                              </h4>
+                              <div className="grid grid-cols-3 gap-4">
+                                <div className="text-center p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                  <p className="text-sm font-medium text-blue-700">Required Pressure</p>
+                                  <p className="text-lg font-bold text-blue-900">{requiredPressure} psf</p>
+                                </div>
+                                <div className="text-center p-3 rounded-lg bg-green-50 border border-green-200">
+                                  <p className="text-sm font-medium text-green-700">System Capacity</p>
+                                  <p className="text-lg font-bold text-green-900">{system.max_wind_pressure} psf</p>
+                                </div>
+                                <div className="text-center p-3 rounded-lg bg-purple-50 border border-purple-200">
+                                  <p className="text-sm font-medium text-purple-700">Safety Margin</p>
+                                  <p className="text-lg font-bold text-purple-900">
+                                    {((system.max_wind_pressure - requiredPressure) / requiredPressure * 100).toFixed(0)}%
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="mt-3 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                <p className="text-sm text-muted-foreground">
+                                  <strong>Critical Zones:</strong> Corner zones experience up to 3x field pressures 
+                                  ({(requiredPressure * 3).toFixed(0)} psf max). Perimeter zones experience up to 2x 
+                                  field pressures ({(requiredPressure * 2).toFixed(0)} psf max).
+                                </p>
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          </TabsContent>
+
+                          <TabsContent value="fastening" className="mt-6">
+                            <FasteningPatternDisplay
+                              pattern={system.fastener_pattern}
+                              deckType={form.getValues().deckType}
+                              windPressure={requiredPressure}
+                              safetyFactor={safetyFactor}
+                            />
+                          </TabsContent>
+
+                          <TabsContent value="installation" className="mt-6">
+                            <InstallationSpecifications
+                              systemName={system.system_name}
+                              deckType={form.getValues().deckType}
+                              membraneType={system.membrane_type}
+                              manufacturer={system.manufacturer}
+                            />
+                          </TabsContent>
+
+                          <TabsContent value="calculator" className="mt-6">
+                            <FasteningCalculator
+                              fasteningPattern={{
+                                field_spacing_x: 12,
+                                field_spacing_y: 12,
+                                perimeter_spacing: 6,
+                                corner_spacing: 4
+                              }}
+                              deckType={form.getValues().deckType}
+                              windPressure={requiredPressure}
+                            />
+                          </TabsContent>
+                        </Tabs>
                       </CardContent>
                     </Card>
                   );
