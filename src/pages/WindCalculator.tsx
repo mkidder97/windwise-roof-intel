@@ -18,6 +18,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { CADUploadManager } from "@/components/CADUploadManager";
 import ProfessionalWindTab from "@/components/ProfessionalWindTab";
+import ReportGenerator from "@/components/ReportGenerator";
+import { useReportContext } from "@/hooks/useReportContext";
 
 interface ProfessionalCalculationForm {
   // Basic project information
@@ -143,8 +145,13 @@ export default function WindCalculator() {
   const [windSpeedValidation, setWindSpeedValidation] = useState<{
     isValid: boolean;
     source: string;
-    nearestCities?: any[];
-  } | null>(null);
+    confidence: number;
+  }>({
+    isValid: false,
+    source: "",
+    confidence: 0
+  });
+  const { updateCalculationData } = useReportContext();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -481,6 +488,19 @@ export default function WindCalculator() {
     const calculationResults = await calculateWindPressure(data);
     setResults(calculationResults);
     
+    // Update report context with calculation data
+    updateCalculationData({ 
+      results: calculationResults,
+      buildingGeometry: {
+        length: data.buildingLength,
+        width: data.buildingWidth,
+        height: data.buildingHeight,
+        roofType: data.roofType,
+        deckType: data.deckType
+      },
+      windParameters: data
+    });
+    
     toast({
       title: calculationResults.professionalAccuracy ? "Professional Calculation Complete" : "Calculation Complete",
       description: `Max pressure: ${calculationResults.maxPressure.toFixed(1)} psf${calculationResults.professionalAccuracy ? " (PE-grade accuracy)" : ""}`,
@@ -737,7 +757,7 @@ export default function WindCalculator() {
 
                    {/* Professional Tabs Interface */}
                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                     <TabsList className="grid w-full grid-cols-3">
+                     <TabsList className="grid w-full grid-cols-4">
                        <TabsTrigger value="basic">
                          <div className="text-center">
                            <div>Basic</div>
@@ -750,13 +770,19 @@ export default function WindCalculator() {
                            <div className="text-xs text-muted-foreground">Design Quality</div>
                          </div>
                        </TabsTrigger>
-                       <TabsTrigger value="project">
-                         <div className="text-center">
-                           <div>Project</div>
-                           <div className="text-xs text-muted-foreground">Documentation</div>
-                         </div>
-                       </TabsTrigger>
-                     </TabsList>
+                        <TabsTrigger value="project">
+                          <div className="text-center">
+                            <div>Project</div>
+                            <div className="text-xs text-muted-foreground">Documentation</div>
+                          </div>
+                        </TabsTrigger>
+                        <TabsTrigger value="reports">
+                          <div className="text-center">
+                            <div>Reports</div>
+                            <div className="text-xs text-muted-foreground">PE Package</div>
+                          </div>
+                        </TabsTrigger>
+                      </TabsList>
                      
         <TabsContent value="basic" className="space-y-4">
           {/* Add description */}
@@ -1352,9 +1378,24 @@ export default function WindCalculator() {
                              </div>
                            </div>
                          )}
-                       </div>
-                     </TabsContent>
-                   </Tabs>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="reports" className="space-y-4">
+                        <ReportGenerator 
+                          calculationData={results}
+                          selectedSystems={[]} // Will be populated from MaterialFinder integration
+                          buildingGeometry={{
+                            length: form.getValues("buildingLength"),
+                            width: form.getValues("buildingWidth"),
+                            height: form.getValues("buildingHeight"),
+                            roofType: form.getValues("roofType"),
+                            deckType: form.getValues("deckType"),
+                            occupancy: "Commercial" // Can be enhanced based on building classification
+                          }}
+                        />
+                      </TabsContent>
+                    </Tabs>
 
                    <Button 
                      type="submit" 

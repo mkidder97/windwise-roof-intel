@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
+import { ReportProvider } from "./hooks/useReportContext";
 import { AuthProvider } from "./hooks/useAuth";
 import WindCalculator from "./pages/WindCalculator";
 import MaterialFinder from "./pages/MaterialFinder";
@@ -23,8 +24,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
+        <ReportProvider>
+          <Toaster />
+          <Sonner />
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
@@ -41,7 +43,8 @@ const App = () => (
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </BrowserRouter>
+          </BrowserRouter>
+        </ReportProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
