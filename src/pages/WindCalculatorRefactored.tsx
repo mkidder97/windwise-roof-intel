@@ -216,15 +216,13 @@ export default function WindCalculatorRefactored() {
 
                 <TabsContent value="enclosure" className="space-y-4">
                   <EnclosureInput
-                    buildingDimensions={{
-                      height: form.watch('buildingHeight'),
-                      length: form.watch('buildingLength'),
-                      width: form.watch('buildingWidth')
-                    }}
-                    openings={buildingOpenings}
+                    buildingLength={form.watch('buildingLength')}
+                    buildingWidth={form.watch('buildingWidth')}
+                    buildingHeight={form.watch('buildingHeight')}
                     onOpeningsChange={setBuildingOpenings}
-                    onEnclosureChange={setEnclosureClassification}
+                    onEnclosureClassChange={setEnclosureClassification}
                     considerFailures={false}
+                    onConsiderFailuresChange={() => {}}
                   />
                 </TabsContent>
 
@@ -279,9 +277,10 @@ export default function WindCalculatorRefactored() {
           {/* Warnings */}
           {validationState.warnings.length > 0 && (
             <CalculationWarning
-              warnings={validationState.warnings}
-              acknowledged={warningAcknowledged}
+              calculationType={form.watch('professionalMode') ? 'professional' : 'basic'}
+              enclosureType={enclosureClassification?.type || 'enclosed'}
               onAcknowledge={setWarningAcknowledged}
+              showEnclosureWarning={enclosureClassification?.type === 'partially_enclosed'}
             />
           )}
         </div>
