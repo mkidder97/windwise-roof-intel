@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ReportProvider } from "./hooks/useReportContext";
 import { AuthProvider } from "./hooks/useAuth";
-import WindCalculator from "./pages/WindCalculator";
+import WindCalculatorOptimized from "./pages/WindCalculatorOptimized";
 import MaterialFinder from "./pages/MaterialFinder";
 import MaterialsManage from "./pages/MaterialsManage";
 import MaterialsDashboard from "./pages/MaterialsDashboard";
@@ -31,7 +31,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<Layout />}>
-              <Route index element={<WindCalculator />} />
+              <Route index element={<WindCalculatorOptimized />} />
               <Route path="materials" element={<MaterialFinder />} />
               <Route path="materials/manage" element={<MaterialsManage />} />
               <Route path="materials/dashboard" element={<MaterialsDashboard />} />
