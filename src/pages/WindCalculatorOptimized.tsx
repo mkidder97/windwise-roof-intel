@@ -13,12 +13,12 @@ import { useWindSpeedLookup } from '@/hooks/useWindSpeedLookup';
 import { windCalculatorPersistence } from '@/utils/formPersistence';
 
 // Lazy loaded components for better performance
-import BuildingParametersForm from '@/components/forms/BuildingParametersForm';
-import WindSpeedInput from '@/components/forms/WindSpeedInput';
-import ProfessionalParametersForm from '@/components/forms/ProfessionalParametersForm';
-import EnclosureInput from '@/components/EnclosureInput';
-import CalculationResults from '@/components/results/CalculationResults';
-import ReportGenerator from '@/components/ReportGenerator';
+import { BuildingParametersForm } from '@/components/forms/BuildingParametersForm';
+import { WindSpeedInput } from '@/components/forms/WindSpeedInput';
+import { ProfessionalParametersForm } from '@/components/forms/ProfessionalParametersForm';
+import { EnclosureInput } from '@/components/EnclosureInput';
+import { CalculationResults } from '@/components/results/CalculationResults';
+import { ReportGenerator } from '@/components/ReportGenerator';
 
 // New optimized components
 import CalculationProgressBar from '@/components/wind-calculator/shared/CalculationProgressBar';
@@ -69,7 +69,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
   });
 
   // Enhanced hooks with performance optimization
-  const { calculateWindPressure, isCalculating, results, performanceMetrics } = useWindCalculations();
+  const { calculateWindPressure, isCalculating, results } = useWindCalculations();
   const { lookupWindSpeed, isLoading: isLookingUp } = useWindSpeedLookup();
   const { validationState, validateForm, debouncedValidate } = useValidation({
     enableRealTimeValidation: true,
@@ -87,7 +87,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     onStateChange: (state, context) => {
       console.log('Calculation state changed:', state.type);
       if (state.type === 'complete') {
-        console.log('📊 Performance metrics:', performanceMetrics);
+        console.log('📊 Calculation completed');
       }
     },
   });
@@ -127,7 +127,8 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     }
 
     try {
-      await startCalculation(formData, windSpeedData, calculateWindPressure);
+      const result = await calculateWindPressure(formData, windSpeedData);
+      setEnclosureClassification(null); // Reset on successful calculation
     } catch (error) {
       console.error('Calculation failed:', error);
     }
@@ -188,7 +189,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                   
                   <div className="flex items-center gap-4">
                     <Badge variant="outline" className="text-xs">
-                      Cache Hit Rate: {performanceMetrics.cacheMetrics.hitRate.toFixed(1)}%
+                      Version: 2.0 Optimized
                     </Badge>
                     
                     {enclosureClassification && (
@@ -250,7 +251,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                         </TabsContent>
 
                         <TabsContent value="reports" className="space-y-4">
-                          {results && <ReportGenerator data={results} />}
+                          {results && <ReportGenerator />}
                         </TabsContent>
                       </Tabs>
                     </CardContent>
@@ -294,16 +295,16 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                     </Card>
                   )}
 
-                  {/* Performance metrics */}
+                  {/* Development metrics */}
                   {process.env.NODE_ENV === 'development' && (
                     <Card>
                       <CardHeader>
-                        <CardTitle>Performance Metrics</CardTitle>
+                        <CardTitle>Debug Info</CardTitle>
                       </CardHeader>
                       <CardContent className="text-xs space-y-2">
-                        <div>Cache Hit Rate: {performanceMetrics.cacheMetrics.hitRate.toFixed(1)}%</div>
-                        <div>Total Requests: {performanceMetrics.cacheMetrics.totalRequests}</div>
-                        <div>Cache Entries: {performanceMetrics.cacheMetrics.cacheHits}</div>
+                        <div>State: {calculationState.type}</div>
+                        <div>Form Valid: {!validationState.errors.length}</div>
+                        <div>Enclosure: {enclosureClassification?.type || 'None'}</div>
                       </CardContent>
                     </Card>
                   )}

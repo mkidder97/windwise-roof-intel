@@ -126,6 +126,17 @@ export interface ProfessionalParameters {
   engineeringNotes?: string;
 }
 
+export interface BuildingOpening {
+  id: string;
+  type: 'window' | 'door' | 'vent' | 'other';
+  width: number;
+  height: number;
+  area: number;
+  location: 'windward' | 'leeward' | 'side';
+  glazingType?: 'ordinary' | 'impact_resistant';
+  failurePressure?: number;
+}
+
 export interface ValidationState {
   isValid: boolean;
   errors: string[];
