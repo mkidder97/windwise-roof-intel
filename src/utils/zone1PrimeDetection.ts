@@ -177,7 +177,7 @@ export function analyzeZone1PrimeRequirements(
     pressureIncrease,
     confidence,
     explanation,
-    asceReference: 'ASCE 7-22 Figure 26.11-1A, Section 26.11.1',
+    asceReference: 'ASCE 7-16/7-22 Figure 26.11-1A, Section 26.11.1',
     warnings
   };
 }
@@ -283,6 +283,6 @@ function getStandardPressureCoefficients(
   return {
     gcp,
     isZone1Prime: false,
-    source: 'ASCE 7-22 Figure 26.11-1'
+    source: 'ASCE 7-16 Figure 26.11-1'
   };
 }

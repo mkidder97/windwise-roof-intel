@@ -68,7 +68,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
       exposureCategory: 'C' as const,
       roofType: 'Flat',
       deckType: 'Steel',
-      asceEdition: 'ASCE 7-22',
+      asceEdition: 'ASCE 7-16',
       topographicFactor: 1.0,
       directionalityFactor: 0.85,
       calculationMethod: 'component_cladding' as const,
@@ -189,30 +189,41 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     }
 
     try {
-      // Calculate wind pressures
+      // Calculate wind pressures with correct ASCE edition
       const calculationResult = await calculateWindPressure(formData, windSpeedData);
       setEnclosureClassification(null); // Reset on successful calculation
 
-      // Calculate pressure zones with Zone 1' analysis
-      if (calculationResult && windSpeedData) {
-        const zoneResults = calculateBuildingPressureZones(
-          formData.buildingLength,
-          formData.buildingWidth,
-          formData.buildingHeight,
-          calculationResult.velocityPressure || 30, // Default velocity pressure
-          formData.exposureCategory,
-          { positive: 0.18, negative: -0.18 }, // Default internal pressure
-          10 // Default effective wind area
+      // Integrate Zone 1' analysis into main results
+      if (calculationResult && zone1PrimeAnalysis?.isRequired) {
+        // Apply Zone 1' pressure increases to the calculation results
+        const zone1PrimeMultiplier = 1 + (zone1PrimeAnalysis.pressureIncrease / 100);
+        
+        // Update corner pressure if Zone 1' applies
+        calculationResult.cornerPressure = calculationResult.cornerPressure * zone1PrimeMultiplier;
+        
+        // Update controlling zone and max pressure
+        const updatedMaxPressure = Math.max(
+          calculationResult.fieldPressure || 0,
+          calculationResult.perimeterPressure || 0, 
+          calculationResult.cornerPressure
         );
         
-        setZoneCalculationResults(zoneResults);
-        setPressureZones(zoneResults.zones);
-        console.log('✅ Zone calculations completed:', zoneResults);
+        if (calculationResult.cornerPressure === updatedMaxPressure) {
+          calculationResult.controllingZone = "Corner (Zone 1')";
+        }
+        
+        calculationResult.maxPressure = updatedMaxPressure;
+        
+        // Add Zone 1' information to warnings
+        calculationResult.warnings = calculationResult.warnings || [];
+        calculationResult.warnings.push(
+          `Zone 1' enhanced pressures applied: ${zone1PrimeAnalysis.pressureIncrease}% increase for elongated building geometry`
+        );
       }
     } catch (error) {
       console.error('Calculation failed:', error);
     }
-  }, [form, windSpeedData, validateForm, calculateWindPressure]);
+  }, [form, windSpeedData, validateForm, calculateWindPressure, zone1PrimeAnalysis]);
 
   // Optimized wind speed lookup
   const handleWindSpeedLookup = useCallback(async () => {
@@ -416,31 +427,14 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
 
                 {/* Results Panel */}
                 <div className="space-y-6">
-                  {/* Zone 1' Analysis Indicator */}
-                  {zone1PrimeAnalysis && (
-                    <Zone1PrimeIndicator
-                      analysis={zone1PrimeAnalysis}
-                      buildingLength={form.watch('buildingLength')}
-                      buildingWidth={form.watch('buildingWidth')}
-                      buildingHeight={form.watch('buildingHeight')}
-                    />
-                  )}
-
-                  {/* Enhanced Zone Visualization */}
-                  {pressureZones.length > 0 && (
-                    <EnhancedZoneVisualization
-                      buildingLength={form.watch('buildingLength')}
-                      buildingWidth={form.watch('buildingWidth')}
-                      buildingHeight={form.watch('buildingHeight')}
-                      zones={pressureZones}
-                      zone1PrimeAnalysis={zone1PrimeAnalysis}
-                    />
-                  )}
-
                   {results && (
-                    <CalculationResults
-                      results={results}
-                    />
+                    <CalculationErrorBoundary>
+                      <MemoizedCalculationResults 
+                        results={results}
+                        showDetailedBreakdown={true}
+                        zone1PrimeAnalysis={zone1PrimeAnalysis}
+                      />
+                    </CalculationErrorBoundary>
                   )}
 
                   {/* Validation feedback */}

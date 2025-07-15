@@ -5,15 +5,18 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Calculator, Wind, AlertTriangle, CheckCircle, Award } from 'lucide-react';
 import type { ProfessionalCalculationResults } from '@/types/wind-calculator';
+import type { Zone1PrimeAnalysis } from '@/utils/zone1PrimeDetection';
 
 interface CalculationResultsProps {
   results: ProfessionalCalculationResults;
   showDetailedBreakdown?: boolean;
+  zone1PrimeAnalysis?: Zone1PrimeAnalysis | null;
 }
 
 export const CalculationResults: React.FC<CalculationResultsProps> = ({
   results,
-  showDetailedBreakdown = true
+  showDetailedBreakdown = true,
+  zone1PrimeAnalysis = null
 }) => {
   const formatPressure = (value: number) => `${value.toFixed(1)} psf`;
   
@@ -130,11 +133,19 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
               <div className="p-4 border rounded-lg">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">Corner</span>
-                  {results.controllingZone === 'Corner' && (
+                  {(results.controllingZone === 'Corner' || results.controllingZone === "Corner (Zone 1')") && (
                     <Badge variant="default">Controlling</Badge>
+                  )}
+                  {zone1PrimeAnalysis?.isRequired && (
+                    <Badge variant="secondary" className="text-orange-600">Zone 1' Enhanced</Badge>
                   )}
                 </div>
                 <div className="text-2xl font-bold">{formatPressure(results.cornerPressure)}</div>
+                {zone1PrimeAnalysis?.isRequired && (
+                  <div className="text-sm text-orange-600 mt-1">
+                    +{zone1PrimeAnalysis.pressureIncrease}% increase applied
+                  </div>
+                )}
               </div>
             </div>
 
@@ -260,7 +271,12 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
         <CardContent className="space-y-4">
           <div>
             <h4 className="font-medium mb-2">Method Used</h4>
-            <p className="text-sm text-muted-foreground">{results.methodologyUsed}</p>
+            <p className="text-sm text-muted-foreground">
+              {results.methodologyUsed} 
+              {zone1PrimeAnalysis?.isRequired && (
+                <span className="text-orange-600 font-medium"> with Zone 1' Enhanced Pressures</span>
+              )}
+            </p>
           </div>
 
           {results.assumptions.length > 0 && (

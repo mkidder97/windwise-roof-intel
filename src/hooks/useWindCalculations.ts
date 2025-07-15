@@ -76,8 +76,8 @@ export function useWindCalculations() {
             confidence: 95
           },
           warnings: result.results.warnings || [],
-          asceReferences: result.results.asceReferences || ["ASCE 7-22 Section 26.5"],
-          methodologyUsed: "Professional Edge Function with Area-Dependent Coefficients",
+          asceReferences: result.results.asceReferences || [`${data.asceEdition} Section 26.5`],
+          methodologyUsed: `Professional ${data.asceEdition} Wind Pressure Analysis with Area-Dependent Coefficients`,
           assumptions: result.results.assumptions || ["Standard atmospheric pressure", "Mean recurrence interval of 50 years"]
         };
       } else {
@@ -190,8 +190,8 @@ export function useWindCalculations() {
             confidence: requiresSpecialAnalysis ? 70 : 85
           },
           warnings,
-          asceReferences: calculationSummary.asceReferences,
-          methodologyUsed: calculationSummary.methodology,
+          asceReferences: calculationSummary.asceReferences.map(ref => ref.replace('ASCE 7-22', data.asceEdition)),
+          methodologyUsed: `${data.asceEdition} Wind Pressure Analysis with Area-Dependent Coefficients`,
           assumptions: calculationSummary.assumptions,
           kzFactor
         };
