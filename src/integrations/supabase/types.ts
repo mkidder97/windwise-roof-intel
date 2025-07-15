@@ -259,6 +259,10 @@ export type Database = {
           deck_type: string
           directionality_factor: number | null
           effective_areas_calculated: Json | null
+          engineer_license: string | null
+          engineer_name: string | null
+          engineer_state: string | null
+          engineer_verified: boolean | null
           exposure_category: string
           field_pressure: number | null
           geometry_complexity_level: string | null
@@ -278,6 +282,7 @@ export type Database = {
           topographic_factor: number | null
           updated_at: string | null
           user_id: string | null
+          verification_date: string | null
           wind_speed: number
           zone_specific_pressures: Json | null
         }
@@ -295,6 +300,10 @@ export type Database = {
           deck_type: string
           directionality_factor?: number | null
           effective_areas_calculated?: Json | null
+          engineer_license?: string | null
+          engineer_name?: string | null
+          engineer_state?: string | null
+          engineer_verified?: boolean | null
           exposure_category: string
           field_pressure?: number | null
           geometry_complexity_level?: string | null
@@ -314,6 +323,7 @@ export type Database = {
           topographic_factor?: number | null
           updated_at?: string | null
           user_id?: string | null
+          verification_date?: string | null
           wind_speed: number
           zone_specific_pressures?: Json | null
         }
@@ -331,6 +341,10 @@ export type Database = {
           deck_type?: string
           directionality_factor?: number | null
           effective_areas_calculated?: Json | null
+          engineer_license?: string | null
+          engineer_name?: string | null
+          engineer_state?: string | null
+          engineer_verified?: boolean | null
           exposure_category?: string
           field_pressure?: number | null
           geometry_complexity_level?: string | null
@@ -350,6 +364,7 @@ export type Database = {
           topographic_factor?: number | null
           updated_at?: string | null
           user_id?: string | null
+          verification_date?: string | null
           wind_speed?: number
           zone_specific_pressures?: Json | null
         }

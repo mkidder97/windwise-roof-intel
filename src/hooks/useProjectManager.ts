@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { ProfessionalCalculationForm, ProfessionalCalculationResults } from '@/types/wind-calculator';
+import type { ProfessionalCalculationForm, ProfessionalCalculationResults, EngineerVerification } from '@/types/wind-calculator';
 
 interface SavedCalculation {
   id: string;
@@ -55,7 +55,8 @@ export function useProjectManager() {
 
   const saveCalculation = useCallback(async (
     formData: ProfessionalCalculationForm,
-    results: ProfessionalCalculationResults
+    results: ProfessionalCalculationResults,
+    verification?: EngineerVerification
   ) => {
     if (!results) {
       console.error('❌ No calculation results to save');
@@ -105,6 +106,12 @@ export function useProjectManager() {
         input_parameters: formData as any,
         results: results as any,
         user_id: null, // Allow anonymous saves
+        // Engineer verification fields
+        engineer_verified: verification?.isVerified || false,
+        engineer_name: verification?.engineerName || null,
+        engineer_license: verification?.engineerLicense || null,
+        engineer_state: verification?.engineerState || null,
+        verification_date: verification?.isVerified ? new Date().toISOString() : null,
       };
 
       console.log('📝 Inserting calculation data:', calculationData);

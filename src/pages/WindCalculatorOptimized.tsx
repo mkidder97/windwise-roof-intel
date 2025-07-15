@@ -10,6 +10,7 @@ import { useWindCalculations } from '@/hooks/useWindCalculations';
 import { useCalculationStateMachine } from '@/hooks/useCalculationStateMachine';
 import { useValidation } from '@/hooks/useValidation';
 import { useWindSpeedLookup } from '@/hooks/useWindSpeedLookup';
+import { useProjectManager } from '@/hooks/useProjectManager';
 import { windCalculatorPersistence } from '@/utils/formPersistence';
 
 // Lazy loaded components for better performance
@@ -33,7 +34,8 @@ import FormErrorBoundary from '@/components/boundaries/FormErrorBoundary';
 import type { 
   ProfessionalCalculationForm, 
   WindSpeedData, 
-  BuildingOpening 
+  BuildingOpening,
+  EngineerVerification
 } from '@/types/wind-calculator';
 import type { EnclosureClassification } from '@/types/stateMachine.types';
 
@@ -71,6 +73,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
   // Enhanced hooks with performance optimization
   const { calculateWindPressure, isCalculating, results } = useWindCalculations();
   const { lookupWindSpeed, isLoading: isLookingUp } = useWindSpeedLookup();
+  const { saveCalculation, isSaving } = useProjectManager();
   const { validationState, validateForm, debouncedValidate } = useValidation({
     enableRealTimeValidation: true,
     debounceMs: 500,
@@ -98,6 +101,9 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
   const [buildingOpenings, setBuildingOpenings] = React.useState<BuildingOpening[]>([]);
   const [enclosureClassification, setEnclosureClassification] = React.useState<EnclosureClassification | null>(null);
   const [failureScenarioEnabled, setFailureScenarioEnabled] = React.useState(false);
+  const [engineerVerification, setEngineerVerification] = React.useState<EngineerVerification>({
+    isVerified: false
+  });
 
   // Auto-save form data
   React.useEffect(() => {
@@ -147,6 +153,13 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
       console.error('Wind speed lookup failed:', error);
     }
   }, [form, lookupWindSpeed]);
+
+  // Save calculation with engineer verification
+  const handleSave = useCallback(async () => {
+    if (!results) return;
+    const formData = form.getValues();
+    await saveCalculation(formData, results, engineerVerification);
+  }, [form, results, engineerVerification, saveCalculation]);
 
   // Memoized component props to prevent unnecessary re-renders
   const buildingFormProps = useMemo(() => ({
@@ -234,6 +247,8 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                             asceEdition={form.watch('asceEdition')}
                             onChange={setWindSpeedData}
                             onValidationChange={() => {}}
+                            verification={engineerVerification}
+                            onVerificationChange={setEngineerVerification}
                           />
                         </TabsContent>
 
@@ -262,11 +277,31 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                   <div className="flex gap-4">
                     <Button
                       onClick={handleCalculation}
-                      disabled={isCalculating || validationState.errors.length > 0}
+                      disabled={
+                        isCalculating || 
+                        validationState.errors.length > 0 || 
+                        !engineerVerification.isVerified
+                      }
                       className="flex-1"
                     >
-                      {isCalculating ? 'Calculating...' : 'Calculate Wind Pressures'}
+                      {isCalculating 
+                        ? 'Calculating...' 
+                        : !engineerVerification.isVerified
+                          ? 'Engineer Verification Required'
+                          : 'Calculate Wind Pressures'
+                      }
                     </Button>
+                    
+                    {results && (
+                      <Button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        variant="outline"
+                        className="min-w-[120px]"
+                      >
+                        {isSaving ? 'Saving...' : 'Save Results'}
+                      </Button>
+                    )}
                   </div>
                 </div>
 

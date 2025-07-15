@@ -147,6 +147,14 @@ export interface ValidationState {
   warnings: string[];
 }
 
+export interface EngineerVerification {
+  isVerified: boolean;
+  engineerName?: string;
+  engineerLicense?: string;
+  engineerState?: string;
+  verificationDate?: string;
+}
+
 export const exposureDescriptions = {
   B: "Urban/Suburban - Buildings, forests",
   C: "Open Terrain - Scattered obstructions",
