@@ -193,6 +193,25 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
       const calculationResult = await calculateWindPressure(formData, windSpeedData);
       setEnclosureClassification(null); // Reset on successful calculation
 
+      // Calculate detailed pressure zones
+      if (calculationResult && formData.buildingLength && formData.buildingWidth && formData.buildingHeight) {
+        const zoneResults = calculateBuildingPressureZones(
+          formData.buildingLength,
+          formData.buildingWidth,
+          formData.buildingHeight,
+          calculationResult.velocityPressure,
+          formData.exposureCategory,
+          {
+            positive: calculationResult.gcpiPositive || 0,
+            negative: calculationResult.gcpiNegative || 0
+          },
+          10 // effective wind area
+        );
+        
+        setZoneCalculationResults(zoneResults);
+        setPressureZones(zoneResults.zones);
+      }
+
       // Integrate Zone 1' analysis into main results
       if (calculationResult && zone1PrimeAnalysis?.isRequired) {
         // Apply Zone 1' pressure increases to the calculation results
@@ -433,6 +452,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                         results={results}
                         showDetailedBreakdown={true}
                         zone1PrimeAnalysis={zone1PrimeAnalysis}
+                        zoneCalculationResults={zoneCalculationResults}
                       />
                     </CalculationErrorBoundary>
                   )}

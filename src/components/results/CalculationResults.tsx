@@ -6,17 +6,20 @@ import { Separator } from '@/components/ui/separator';
 import { Calculator, Wind, AlertTriangle, CheckCircle, Award } from 'lucide-react';
 import type { ProfessionalCalculationResults } from '@/types/wind-calculator';
 import type { Zone1PrimeAnalysis } from '@/utils/zone1PrimeDetection';
+import type { ZoneCalculationResults } from '@/utils/asceZoneCalculations';
 
 interface CalculationResultsProps {
   results: ProfessionalCalculationResults;
   showDetailedBreakdown?: boolean;
   zone1PrimeAnalysis?: Zone1PrimeAnalysis | null;
+  zoneCalculationResults?: ZoneCalculationResults | null;
 }
 
 export const CalculationResults: React.FC<CalculationResultsProps> = ({
   results,
   showDetailedBreakdown = true,
-  zone1PrimeAnalysis = null
+  zone1PrimeAnalysis = null,
+  zoneCalculationResults = null
 }) => {
   const formatPressure = (value: number) => `${value.toFixed(1)} psf`;
   
@@ -94,60 +97,181 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
         </CardContent>
       </Card>
 
-      {/* Zone Pressures */}
+      {/* Zone Pressures - ASCE 4-Zone System */}
       {showDetailedBreakdown && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Wind className="h-5 w-5 text-primary" />
-              Zone Pressure Breakdown
+              ASCE Zone Pressure Breakdown
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Field</span>
-                  {results.controllingZone === 'Field' && (
-                    <Badge variant="default">Controlling</Badge>
-                  )}
+            {zoneCalculationResults ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Zone 3 - Field */}
+                  {zoneCalculationResults.zones.filter(z => z.type === 'field').map(zone => (
+                    <div key={zone.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">Zone 3 (Field)</span>
+                        {zoneCalculationResults.controllingZone.includes('Field') && (
+                          <Badge variant="default">Controlling</Badge>
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold">{formatPressure(zone.netPressure)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        GCp = {zone.gcp.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Area: {zone.area.toFixed(0)} sq ft
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Zone 2 - Perimeter */}
+                  {zoneCalculationResults.zones.filter(z => z.type === 'perimeter' || z.type === 'perimeter_prime').map(zone => (
+                    <div key={zone.id} className="p-4 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">
+                          Zone 2 (Perimeter)
+                          {zone.isZone1Prime && (
+                            <Badge variant="secondary" className="ml-2 text-orange-600">Zone 1'</Badge>
+                          )}
+                        </span>
+                        {zoneCalculationResults.controllingZone.includes('Perimeter') && (
+                          <Badge variant="default">Controlling</Badge>
+                        )}
+                      </div>
+                      <div className="text-2xl font-bold">{formatPressure(zone.netPressure)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        GCp = {zone.gcp.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Area: {zone.area.toFixed(0)} sq ft
+                      </div>
+                      {zone.isZone1Prime && (
+                        <div className="text-xs text-orange-600 mt-1">
+                          Enhanced Zone 1'
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Zone 1 - Corner */}
+                  {zoneCalculationResults.zones.filter(z => z.type === 'corner' && !z.isZone1Prime).map((zone, index) => (
+                    index === 0 && (
+                      <div key={zone.id} className="p-4 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">Zone 1 (Corner)</span>
+                          {zoneCalculationResults.controllingZone.includes('Corner') && !zoneCalculationResults.controllingZone.includes("Zone 1'") && (
+                            <Badge variant="default">Controlling</Badge>
+                          )}
+                        </div>
+                        <div className="text-2xl font-bold">{formatPressure(zone.netPressure)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          GCp = {zone.gcp.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          4 corners × {zone.area.toFixed(0)} sq ft each
+                        </div>
+                      </div>
+                    )
+                  ))}
+
+                  {/* Zone 1' - Enhanced Corner */}
+                  {zoneCalculationResults.zones.filter(z => z.type === 'corner_prime').map((zone, index) => (
+                    index === 0 && (
+                      <div key={zone.id} className="p-4 border rounded-lg border-orange-200 bg-orange-50/50">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium">Zone 1' (Enhanced Corner)</span>
+                          <div className="flex gap-1">
+                            {zoneCalculationResults.controllingZone.includes("Zone 1'") && (
+                              <Badge variant="default">Controlling</Badge>
+                            )}
+                            <Badge variant="secondary" className="text-orange-600">Zone 1'</Badge>
+                          </div>
+                        </div>
+                        <div className="text-2xl font-bold text-orange-700">{formatPressure(zone.netPressure)}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          GCp = {zone.gcp.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          4 corners × {zone.area.toFixed(0)} sq ft each
+                        </div>
+                        {zone1PrimeAnalysis?.isRequired && (
+                          <div className="text-xs text-orange-600 mt-1">
+                            +{zone1PrimeAnalysis.pressureIncrease}% increase applied
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ))}
                 </div>
-                <div className="text-2xl font-bold">{formatPressure(results.fieldPressure)}</div>
-                {results.fieldPrimePressure && (
-                  <div className="text-sm text-muted-foreground">
-                    Field Prime: {formatPressure(results.fieldPrimePressure)}
+
+                {/* Zone Summary */}
+                <div className="mt-4 p-3 bg-muted/30 rounded-lg">
+                  <h4 className="font-medium text-sm mb-2">ASCE Zone Analysis Summary</h4>
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <div>Total zones analyzed: {zoneCalculationResults.zones.length}</div>
+                    <div>Total roof area: {zoneCalculationResults.affectedArea.total.toFixed(0)} sq ft</div>
+                    {zoneCalculationResults.zone1PrimeRequired && (
+                      <div className="text-orange-600">
+                        Zone 1' enhanced area: {zoneCalculationResults.affectedArea.zone1Prime.toFixed(0)} sq ft 
+                        ({((zoneCalculationResults.affectedArea.zone1Prime / zoneCalculationResults.affectedArea.total) * 100).toFixed(1)}% of roof)
+                      </div>
+                    )}
+                    <div>Reference: ASCE 7-16 Figure 30.11-1, ASCE 7-22 Figure 26.11-1</div>
                   </div>
-                )}
-              </div>
-
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Perimeter</span>
-                  {results.controllingZone === 'Perimeter' && (
-                    <Badge variant="default">Controlling</Badge>
+                </div>
+              </>
+            ) : (
+              /* Fallback to simplified display */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">Zone 3 (Field)</span>
+                    {results.controllingZone === 'Field' && (
+                      <Badge variant="default">Controlling</Badge>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold">{formatPressure(results.fieldPressure)}</div>
+                  {results.fieldPrimePressure && (
+                    <div className="text-sm text-muted-foreground">
+                      Field Prime: {formatPressure(results.fieldPrimePressure)}
+                    </div>
                   )}
                 </div>
-                <div className="text-2xl font-bold">{formatPressure(results.perimeterPressure)}</div>
-              </div>
 
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Corner</span>
-                  {(results.controllingZone === 'Corner' || results.controllingZone === "Corner (Zone 1')") && (
-                    <Badge variant="default">Controlling</Badge>
-                  )}
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">Zone 2 (Perimeter)</span>
+                    {results.controllingZone === 'Perimeter' && (
+                      <Badge variant="default">Controlling</Badge>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold">{formatPressure(results.perimeterPressure)}</div>
+                </div>
+
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium">Zone 1 (Corner)</span>
+                    {(results.controllingZone === 'Corner' || results.controllingZone === "Corner (Zone 1')") && (
+                      <Badge variant="default">Controlling</Badge>
+                    )}
+                    {zone1PrimeAnalysis?.isRequired && (
+                      <Badge variant="secondary" className="text-orange-600">Zone 1' Enhanced</Badge>
+                    )}
+                  </div>
+                  <div className="text-2xl font-bold">{formatPressure(results.cornerPressure)}</div>
                   {zone1PrimeAnalysis?.isRequired && (
-                    <Badge variant="secondary" className="text-orange-600">Zone 1' Enhanced</Badge>
+                    <div className="text-sm text-orange-600 mt-1">
+                      +{zone1PrimeAnalysis.pressureIncrease}% increase applied
+                    </div>
                   )}
                 </div>
-                <div className="text-2xl font-bold">{formatPressure(results.cornerPressure)}</div>
-                {zone1PrimeAnalysis?.isRequired && (
-                  <div className="text-sm text-orange-600 mt-1">
-                    +{zone1PrimeAnalysis.pressureIncrease}% increase applied
-                  </div>
-                )}
               </div>
-            </div>
+            )}
 
             {/* Net Pressures */}
             {results.internalPressureIncluded && (
