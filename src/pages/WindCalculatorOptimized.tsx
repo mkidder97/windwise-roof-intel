@@ -14,6 +14,12 @@ import { useASCEParameterLookup } from '@/hooks/useASCEParameterLookup';
 import { useProjectManager } from '@/hooks/useProjectManager';
 import { windCalculatorPersistence } from '@/utils/formPersistence';
 
+// Zone 1' Engine imports
+import { analyzeZone1PrimeRequirements } from '@/utils/zone1PrimeDetection';
+import { calculateBuildingPressureZones } from '@/utils/asceZoneCalculations';
+import { Zone1PrimeIndicator } from '@/components/Zone1PrimeIndicator';
+import { EnhancedZoneVisualization } from '@/components/EnhancedZoneVisualization';
+
 // Lazy loaded components for better performance
 import { BuildingParametersForm } from '@/components/forms/BuildingParametersForm';
 import { WindSpeedInput } from '@/components/forms/WindSpeedInput';
@@ -39,6 +45,8 @@ import type {
   EngineerVerification
 } from '@/types/wind-calculator';
 import type { EnclosureClassification } from '@/types/stateMachine.types';
+import type { Zone1PrimeAnalysis } from '@/utils/zone1PrimeDetection';
+import type { PressureZone, ZoneCalculationResults } from '@/utils/asceZoneCalculations';
 
 // Memoized sub-components for performance
 const MemoizedBuildingForm = memo(BuildingParametersForm);
@@ -107,6 +115,11 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     isVerified: false
   });
 
+  // Zone 1' Engine state
+  const [zone1PrimeAnalysis, setZone1PrimeAnalysis] = React.useState<Zone1PrimeAnalysis | null>(null);
+  const [pressureZones, setPressureZones] = React.useState<PressureZone[]>([]);
+  const [zoneCalculationResults, setZoneCalculationResults] = React.useState<ZoneCalculationResults | null>(null);
+
   // Auto-save form data
   React.useEffect(() => {
     const subscription = form.watch((formData) => {
@@ -147,7 +160,25 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     form.watch('roofType')
   ]);
 
-  // Optimized calculation handler
+  // Zone 1' Analysis when building dimensions change
+  React.useEffect(() => {
+    const { buildingLength, buildingWidth, buildingHeight, exposureCategory } = form.getValues();
+    if (buildingLength && buildingWidth && buildingHeight && exposureCategory) {
+      console.log('🚀 Auto-triggering Zone 1\' analysis');
+      const analysis = analyzeZone1PrimeRequirements(
+        buildingLength, buildingWidth, buildingHeight, exposureCategory
+      );
+      setZone1PrimeAnalysis(analysis);
+      console.log('✅ Zone 1\' analysis completed:', analysis);
+    }
+  }, [
+    form.watch('buildingLength'),
+    form.watch('buildingWidth'), 
+    form.watch('buildingHeight'),
+    form.watch('exposureCategory')
+  ]);
+
+  // Enhanced calculation handler with Zone 1' integration
   const handleCalculation = useCallback(async () => {
     const formData = form.getValues();
     
@@ -158,8 +189,26 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     }
 
     try {
-      await calculateWindPressure(formData, windSpeedData);
+      // Calculate wind pressures
+      const calculationResult = await calculateWindPressure(formData, windSpeedData);
       setEnclosureClassification(null); // Reset on successful calculation
+
+      // Calculate pressure zones with Zone 1' analysis
+      if (calculationResult && windSpeedData) {
+        const zoneResults = calculateBuildingPressureZones(
+          formData.buildingLength,
+          formData.buildingWidth,
+          formData.buildingHeight,
+          calculationResult.velocityPressure || 30, // Default velocity pressure
+          formData.exposureCategory,
+          { positive: 0.18, negative: -0.18 }, // Default internal pressure
+          10 // Default effective wind area
+        );
+        
+        setZoneCalculationResults(zoneResults);
+        setPressureZones(zoneResults.zones);
+        console.log('✅ Zone calculations completed:', zoneResults);
+      }
     } catch (error) {
       console.error('Calculation failed:', error);
     }
@@ -186,18 +235,21 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     const { exposureCategory, asceEdition, buildingHeight, roofType } = form.getValues();
     if (!exposureCategory || !asceEdition || !buildingHeight || !roofType) return;
 
-    try {
-      console.log('🔍 Looking up ASCE parameters');
-      const data = await lookupASCEParameters(exposureCategory, asceEdition, buildingHeight, roofType);
-      
-      // Update form with auto-calculated values
-      form.setValue('topographicFactor', data.topographicFactor);
-      form.setValue('directionalityFactor', data.directionalityFactor);
-      
-      console.log('✅ ASCE parameter lookup completed:', data);
-    } catch (error) {
-      console.error('❌ ASCE parameter lookup failed:', error);
-    }
+      try {
+        console.log('🔍 Looking up ASCE parameters for edition:', asceEdition);
+        const data = await lookupASCEParameters(exposureCategory, asceEdition, buildingHeight, roofType);
+        
+        // Update form with auto-calculated values
+        form.setValue('topographicFactor', data.topographicFactor);
+        form.setValue('directionalityFactor', data.directionalityFactor);
+        
+        // Ensure the ASCE edition in calculation method matches selected edition
+        console.log('📋 Using ASCE edition:', asceEdition);
+        
+        console.log('✅ ASCE parameter lookup completed:', data);
+      } catch (error) {
+        console.error('❌ ASCE parameter lookup failed:', error);
+      }
   }, [form, lookupASCEParameters]);
 
   // Save calculation with engineer verification
@@ -364,6 +416,27 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
 
                 {/* Results Panel */}
                 <div className="space-y-6">
+                  {/* Zone 1' Analysis Indicator */}
+                  {zone1PrimeAnalysis && (
+                    <Zone1PrimeIndicator
+                      analysis={zone1PrimeAnalysis}
+                      buildingLength={form.watch('buildingLength')}
+                      buildingWidth={form.watch('buildingWidth')}
+                      buildingHeight={form.watch('buildingHeight')}
+                    />
+                  )}
+
+                  {/* Enhanced Zone Visualization */}
+                  {pressureZones.length > 0 && (
+                    <EnhancedZoneVisualization
+                      buildingLength={form.watch('buildingLength')}
+                      buildingWidth={form.watch('buildingWidth')}
+                      buildingHeight={form.watch('buildingHeight')}
+                      zones={pressureZones}
+                      zone1PrimeAnalysis={zone1PrimeAnalysis}
+                    />
+                  )}
+
                   {results && (
                     <CalculationResults
                       results={results}
@@ -396,6 +469,9 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                         <div>State: {calculationState.type}</div>
                         <div>Form Valid: {!validationState.errors.length}</div>
                         <div>Enclosure: {enclosureClassification?.type || 'None'}</div>
+                        <div>Zone 1': {zone1PrimeAnalysis?.isRequired ? 'Required' : 'Not Required'}</div>
+                        <div>ASCE Edition: {form.watch('asceEdition')}</div>
+                        <div>Zones: {pressureZones.length}</div>
                       </CardContent>
                     </Card>
                   )}
