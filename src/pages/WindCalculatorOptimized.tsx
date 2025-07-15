@@ -10,6 +10,7 @@ import { useWindCalculations } from '@/hooks/useWindCalculations';
 import { useCalculationStateMachine } from '@/hooks/useCalculationStateMachine';
 import { useValidation } from '@/hooks/useValidation';
 import { useWindSpeedLookup } from '@/hooks/useWindSpeedLookup';
+import { useASCEParameterLookup } from '@/hooks/useASCEParameterLookup';
 import { useProjectManager } from '@/hooks/useProjectManager';
 import { windCalculatorPersistence } from '@/utils/formPersistence';
 
@@ -73,6 +74,7 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
   // Enhanced hooks with performance optimization
   const { calculateWindPressure, isCalculating, results } = useWindCalculations();
   const { lookupWindSpeed, isLoading: isLookingUp } = useWindSpeedLookup();
+  const { lookupASCEParameters, isLoading: isLookingUpASCE } = useASCEParameterLookup();
   const { saveCalculation, isSaving } = useProjectManager();
   const { validationState, validateForm, debouncedValidate } = useValidation({
     enableRealTimeValidation: true,
@@ -122,6 +124,29 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
     }
   }, [form]);
 
+  // Auto-lookup wind speed when city/state changes
+  React.useEffect(() => {
+    const { city, state, asceEdition } = form.getValues();
+    if (city && state && asceEdition) {
+      console.log('🚀 Auto-triggering wind speed lookup for:', { city, state, asceEdition });
+      handleWindSpeedLookup();
+    }
+  }, [form.watch('city'), form.watch('state'), form.watch('asceEdition')]);
+
+  // Auto-lookup ASCE parameters when relevant fields change
+  React.useEffect(() => {
+    const { exposureCategory, asceEdition, buildingHeight, roofType } = form.getValues();
+    if (exposureCategory && asceEdition && buildingHeight && roofType) {
+      console.log('🚀 Auto-triggering ASCE parameter lookup');
+      handleASCEParameterLookup();
+    }
+  }, [
+    form.watch('exposureCategory'), 
+    form.watch('asceEdition'), 
+    form.watch('buildingHeight'), 
+    form.watch('roofType')
+  ]);
+
   // Optimized calculation handler
   const handleCalculation = useCallback(async () => {
     const formData = form.getValues();
@@ -142,17 +167,38 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
 
   // Optimized wind speed lookup
   const handleWindSpeedLookup = useCallback(async () => {
-    const { city, state } = form.getValues();
-    if (!city || !state) return;
+    const { city, state, asceEdition } = form.getValues();
+    if (!city || !state || !asceEdition) return;
 
     try {
-      const data = await lookupWindSpeed(city, state, form.getValues().asceEdition);
+      console.log('🔍 Looking up wind speed for:', { city, state, asceEdition });
+      const data = await lookupWindSpeed(city, state, asceEdition);
       setWindSpeedData(data);
       form.setValue('customWindSpeed', data.value);
+      console.log('✅ Wind speed lookup completed:', data);
     } catch (error) {
-      console.error('Wind speed lookup failed:', error);
+      console.error('❌ Wind speed lookup failed:', error);
     }
   }, [form, lookupWindSpeed]);
+
+  // ASCE parameter lookup
+  const handleASCEParameterLookup = useCallback(async () => {
+    const { exposureCategory, asceEdition, buildingHeight, roofType } = form.getValues();
+    if (!exposureCategory || !asceEdition || !buildingHeight || !roofType) return;
+
+    try {
+      console.log('🔍 Looking up ASCE parameters');
+      const data = await lookupASCEParameters(exposureCategory, asceEdition, buildingHeight, roofType);
+      
+      // Update form with auto-calculated values
+      form.setValue('topographicFactor', data.topographicFactor);
+      form.setValue('directionalityFactor', data.directionalityFactor);
+      
+      console.log('✅ ASCE parameter lookup completed:', data);
+    } catch (error) {
+      console.error('❌ ASCE parameter lookup failed:', error);
+    }
+  }, [form, lookupASCEParameters]);
 
   // Save calculation with engineer verification
   const handleSave = useCallback(async () => {
@@ -242,13 +288,18 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                         <TabsContent value="basic" className="space-y-4">
                           <BuildingParametersForm />
                           <WindSpeedInput
-                            value={windSpeedData || { value: 120, source: 'manual', confidence: 0 }}
+                            value={windSpeedData || { 
+                              value: form.watch('customWindSpeed') || 120, 
+                              source: windSpeedData?.source || 'manual', 
+                              confidence: windSpeedData?.confidence || 0 
+                            }}
                             location={{ city: form.watch('city'), state: form.watch('state') }}
                             asceEdition={form.watch('asceEdition')}
                             onChange={setWindSpeedData}
                             onValidationChange={() => {}}
                             verification={engineerVerification}
                             onVerificationChange={setEngineerVerification}
+                            isLoading={isLookingUp}
                           />
                         </TabsContent>
 
@@ -279,16 +330,22 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                       onClick={handleCalculation}
                       disabled={
                         isCalculating || 
+                        isLookingUp ||
+                        isLookingUpASCE ||
                         validationState.errors.length > 0 || 
-                        !engineerVerification.isVerified
+                        (!windSpeedData || windSpeedData.source === 'manual') ? false : !engineerVerification.isVerified
                       }
                       className="flex-1"
                     >
                       {isCalculating 
                         ? 'Calculating...' 
-                        : !engineerVerification.isVerified
-                          ? 'Engineer Verification Required'
-                          : 'Calculate Wind Pressures'
+                        : isLookingUp || isLookingUpASCE
+                          ? 'Loading Parameters...'
+                          : (!windSpeedData || windSpeedData.source === 'manual')
+                            ? 'Calculate Wind Pressures'
+                            : !engineerVerification.isVerified
+                              ? 'Engineer Verification Required'
+                              : 'Calculate Wind Pressures'
                       }
                     </Button>
                     

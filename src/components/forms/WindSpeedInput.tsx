@@ -20,6 +20,7 @@ interface WindSpeedInputProps {
   onValidationChange: (isValid: boolean) => void;
   verification?: EngineerVerification;
   onVerificationChange?: (verification: EngineerVerification) => void;
+  isLoading?: boolean;
 }
 
 export const WindSpeedInput: React.FC<WindSpeedInputProps> = ({
@@ -29,11 +30,14 @@ export const WindSpeedInput: React.FC<WindSpeedInputProps> = ({
   onChange,
   onValidationChange,
   verification,
-  onVerificationChange
+  onVerificationChange,
+  isLoading: externalIsLoading
 }) => {
   const [useCustomSpeed, setUseCustomSpeed] = useState(value.source === 'custom');
   const [justification, setJustification] = useState(value.justification || '');
-  const { lookupWindSpeed, isLoading, validation } = useWindSpeedLookup();
+  const { lookupWindSpeed, isLoading: internalIsLoading, validation } = useWindSpeedLookup();
+  
+  const isLoading = externalIsLoading || internalIsLoading;
 
   useEffect(() => {
     onValidationChange(validation.isValid);
@@ -91,8 +95,11 @@ export const WindSpeedInput: React.FC<WindSpeedInputProps> = ({
     }
   };
 
-  // Show verification when wind speed is determined
-  const showVerification = value.value > 0 && verification && onVerificationChange;
+  // Show verification when wind speed is determined and it's from database or interpolated
+  const showVerification = value.value > 0 && 
+    (value.source === 'database' || value.source === 'interpolated') && 
+    verification && 
+    onVerificationChange;
 
   return (
     <div className="space-y-4">

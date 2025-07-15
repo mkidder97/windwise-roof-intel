@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { Building, MapPin, Wind } from 'lucide-react';
+import { Building, MapPin, Wind, Calculator } from 'lucide-react';
 import type { BuildingDimensions, LocationData, ASCEParameters } from '@/types/wind-calculator';
 import { exposureDescriptions, asceEditions, roofTypes, deckTypes } from '@/types/wind-calculator';
 
@@ -353,13 +353,19 @@ export const BuildingParametersForm: React.FC<BuildingParametersFormProps> = ({
               name="topographicFactor"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Topographic Factor (Kzt)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Topographic Factor (Kzt)
+                    <span title="Auto-calculated">
+                      <Calculator className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       step="0.01"
                       {...field}
                       onChange={e => field.onChange(parseFloat(e.target.value))}
+                      className="bg-muted/50"
                     />
                   </FormControl>
                   <FormMessage />
@@ -372,13 +378,19 @@ export const BuildingParametersForm: React.FC<BuildingParametersFormProps> = ({
               name="directionalityFactor"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Directionality Factor (Kd)</FormLabel>
+                  <FormLabel className="flex items-center gap-2">
+                    Directionality Factor (Kd)
+                    <span title="Auto-calculated">
+                      <Calculator className="h-3 w-3 text-muted-foreground" />
+                    </span>
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
                       step="0.01"
                       {...field}
                       onChange={e => field.onChange(parseFloat(e.target.value))}
+                      className="bg-muted/50"
                     />
                   </FormControl>
                   <FormMessage />
