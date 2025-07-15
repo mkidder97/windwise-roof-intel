@@ -26,6 +26,23 @@ export function useWindSpeedLookup() {
     setIsLoading(true);
     console.log('🔍 Looking up wind speed:', { city, state, asceEdition });
     
+    // Normalize state to abbreviation if full name is provided
+    const stateMapping: Record<string, string> = {
+      'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+      'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+      'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+      'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+      'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+      'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+      'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+      'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+      'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+      'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+    };
+    
+    const normalizedState = stateMapping[state] || state;
+    console.log('🔄 Normalized state:', { original: state, normalized: normalizedState });
+    
     try {
       // Test basic database connectivity first
       const { data: healthCheck, error: healthError } = await supabase
@@ -45,7 +62,7 @@ export function useWindSpeedLookup() {
         .from('wind_speeds')
         .select('*')
         .eq('city', city)
-        .eq('state', state)
+        .eq('state', normalizedState)
         .eq('asce_edition', asceEdition)
         .maybeSingle();
 
@@ -81,7 +98,7 @@ export function useWindSpeedLookup() {
       const { data: nearbyCities, error: nearbyError } = await supabase
         .from('wind_speeds')
         .select('*')
-        .eq('state', state)
+        .eq('state', normalizedState)
         .eq('asce_edition', asceEdition)
         .limit(5);
 
