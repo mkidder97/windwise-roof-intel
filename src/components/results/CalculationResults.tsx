@@ -130,16 +130,11 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                   ))}
 
                   {/* Zone 2 - Perimeter */}
-                  {zoneCalculationResults.zones.filter(z => z.type === 'perimeter' || z.type === 'perimeter_prime').map(zone => (
+                  {zoneCalculationResults.zones.filter(z => z.type === 'perimeter').map(zone => (
                     <div key={zone.id} className="p-4 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">
-                          Zone 2 (Perimeter)
-                          {zone.isZone1Prime && (
-                            <Badge variant="secondary" className="ml-2 text-orange-600">Zone 1'</Badge>
-                          )}
-                        </span>
-                        {zoneCalculationResults.controllingZone.includes('Perimeter') && (
+                        <span className="font-medium">Zone 2 (Perimeter)</span>
+                        {zoneCalculationResults.controllingZone.includes('Perimeter') && !zoneCalculationResults.controllingZone.includes("Zone 1'") && (
                           <Badge variant="default">Controlling</Badge>
                         )}
                       </div>
@@ -150,41 +145,45 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                       <div className="text-xs text-muted-foreground">
                         Area: {zone.area.toFixed(0)} sq ft
                       </div>
-                      {zone.isZone1Prime && (
-                        <div className="text-xs text-orange-600 mt-1">
-                          Enhanced Zone 1'
-                        </div>
-                      )}
                     </div>
                   ))}
 
-                  {/* Zone 1 - Corner */}
-                  {zoneCalculationResults.zones.filter(z => z.type === 'corner' && !z.isZone1Prime).map((zone, index) => (
-                    index === 0 && (
-                      <div key={zone.id} className="p-4 border rounded-lg">
+                  {/* Zone 1 - Corner (Always show) */}
+                  {(() => {
+                    const standardCornerZone = zoneCalculationResults.zones.find(z => z.type === 'corner');
+                    const enhancedCornerZone = zoneCalculationResults.zones.find(z => z.type === 'corner_prime');
+                    const displayZone = standardCornerZone || enhancedCornerZone;
+                    
+                    if (!displayZone) return null;
+                    
+                    return (
+                      <div className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium">Zone 1 (Corner)</span>
                           {zoneCalculationResults.controllingZone.includes('Corner') && !zoneCalculationResults.controllingZone.includes("Zone 1'") && (
                             <Badge variant="default">Controlling</Badge>
                           )}
                         </div>
-                        <div className="text-2xl font-bold">{formatPressure(zone.netPressure)}</div>
+                        <div className="text-2xl font-bold">{formatPressure(displayZone.netPressure)}</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          GCp = {zone.gcp.toFixed(2)}
+                          GCp = {displayZone.gcp.toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          4 corners × {zone.area.toFixed(0)} sq ft each
+                          4 corners × {displayZone.area.toFixed(0)} sq ft each
                         </div>
                       </div>
-                    )
-                  ))}
+                    );
+                  })()}
 
-                  {/* Zone 1' - Enhanced Corner */}
-                  {zoneCalculationResults.zones.filter(z => z.type === 'corner_prime').map((zone, index) => (
-                    index === 0 && (
-                      <div key={zone.id} className="p-4 border rounded-lg border-orange-200 bg-orange-50/50">
+                  {/* Zone 1' - Enhanced Corner (Only when Zone 1' is required) */}
+                  {zoneCalculationResults.zone1PrimeRequired && (() => {
+                    const zone1PrimeZone = zoneCalculationResults.zones.find(z => z.type === 'corner_prime');
+                    if (!zone1PrimeZone) return null;
+                    
+                    return (
+                      <div className="p-4 border rounded-lg border-orange-200 bg-orange-50/50">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium">Zone 1' (Enhanced Corner)</span>
+                          <span className="font-medium">Zone 1' (Enhanced)</span>
                           <div className="flex gap-1">
                             {zoneCalculationResults.controllingZone.includes("Zone 1'") && (
                               <Badge variant="default">Controlling</Badge>
@@ -192,12 +191,12 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                             <Badge variant="secondary" className="text-orange-600">Zone 1'</Badge>
                           </div>
                         </div>
-                        <div className="text-2xl font-bold text-orange-700">{formatPressure(zone.netPressure)}</div>
+                        <div className="text-2xl font-bold text-orange-700">{formatPressure(zone1PrimeZone.netPressure)}</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          GCp = {zone.gcp.toFixed(2)}
+                          GCp = {zone1PrimeZone.gcp.toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          4 corners × {zone.area.toFixed(0)} sq ft each
+                          4 corners × {zone1PrimeZone.area.toFixed(0)} sq ft each
                         </div>
                         {zone1PrimeAnalysis?.isRequired && (
                           <div className="text-xs text-orange-600 mt-1">
@@ -205,9 +204,30 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                           </div>
                         )}
                       </div>
-                    )
-                  ))}
+                    );
+                  })()}
                 </div>
+
+                {/* Enhanced Perimeter Zone (for highly elongated buildings) */}
+                {zoneCalculationResults.zones.filter(z => z.type === 'perimeter_prime').length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-3">Enhanced Perimeter Zones (Zone 1' Extension)</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {zoneCalculationResults.zones.filter(z => z.type === 'perimeter_prime').map(zone => (
+                        <div key={zone.id} className="p-4 border rounded-lg border-orange-200 bg-orange-50/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium">{zone.name}</span>
+                            <Badge variant="secondary" className="text-orange-600">Zone 1'</Badge>
+                          </div>
+                          <div className="text-xl font-bold text-orange-700">{formatPressure(zone.netPressure)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            GCp = {zone.gcp.toFixed(2)} | Area: {zone.area.toFixed(0)} sq ft
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Zone Summary */}
                 <div className="mt-4 p-3 bg-muted/30 rounded-lg">
