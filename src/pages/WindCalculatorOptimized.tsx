@@ -127,11 +127,11 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
   // Auto-lookup wind speed when city/state changes
   React.useEffect(() => {
     const { city, state, asceEdition } = form.getValues();
-    if (city && state && asceEdition) {
+    if (city && state && asceEdition && !windSpeedData) {
       console.log('🚀 Auto-triggering wind speed lookup for:', { city, state, asceEdition });
       handleWindSpeedLookup();
     }
-  }, [form.watch('city'), form.watch('state'), form.watch('asceEdition')]);
+  }, [form.watch('city'), form.watch('state'), form.watch('asceEdition'), windSpeedData]);
 
   // Auto-lookup ASCE parameters when relevant fields change
   React.useEffect(() => {
@@ -289,9 +289,9 @@ const WindCalculatorOptimized = memo(function WindCalculatorOptimized() {
                           <BuildingParametersForm />
                           <WindSpeedInput
                             value={windSpeedData || { 
-                              value: form.watch('customWindSpeed') || 120, 
-                              source: windSpeedData?.source || 'manual', 
-                              confidence: windSpeedData?.confidence || 0 
+                              value: form.watch('customWindSpeed') || 0, 
+                              source: 'manual', 
+                              confidence: 0 
                             }}
                             location={{ city: form.watch('city'), state: form.watch('state') }}
                             asceEdition={form.watch('asceEdition')}
