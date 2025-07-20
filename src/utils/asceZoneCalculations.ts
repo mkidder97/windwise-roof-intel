@@ -113,9 +113,18 @@ export function calculateBuildingPressureZones(
     total: zones.reduce((sum, z) => sum + z.area, 0)
   };
 
+  // Debug logging
+  console.log('🔧 Zone Calculation Debug:', {
+    totalZones: zones.length,
+    zoneTypes: zones.map(z => z.type),
+    pressures: zones.map(z => ({ name: z.name, pressure: z.netPressure, gcp: z.gcp })),
+    velocityPressure,
+    internalPressure: internalPressureCoefficients
+  });
+
   // Find controlling zone
-  const maxPressure = Math.max(...zones.map(z => Math.abs(z.netPressure)));
-  const controllingZone = zones.find(z => Math.abs(z.netPressure) === maxPressure)?.name || 'Unknown';
+  const maxPressure = Math.max(...zones.map(z => z.netPressure));
+  const controllingZone = zones.find(z => z.netPressure === maxPressure)?.name || 'Unknown';
 
   return {
     zones,
@@ -153,7 +162,8 @@ function createZone1PrimeZones(
   );
   
   const cornerPressure = qz * cornerCoeff.gcp;
-  const cornerNetPressure = cornerPressure - (gcpi.positive * qz);
+  // Correct net pressure calculation: For suction (negative GCP), add internal pressure
+  const cornerNetPressure = Math.abs(cornerPressure) + (qz * Math.abs(gcpi.positive));
   
   // Four corner zones
   const cornerArea = cornerDim * cornerDim;
@@ -171,7 +181,7 @@ function createZone1PrimeZones(
       name: corner.name,
       gcp: cornerCoeff.gcp,
       area: cornerArea,
-      netPressure: Math.abs(cornerNetPressure),
+      netPressure: cornerNetPressure,
       location: {
         x: corner.x,
         y: corner.y,
@@ -184,23 +194,77 @@ function createZone1PrimeZones(
     });
   });
 
-  // Enhanced perimeter zones for highly elongated buildings
+  // Always create standard corner zones (Zone 1)
+  const standardCornerCoeff = getZone1PrimePressureCoefficients(1.0, 0.5, effectiveWindArea, 'corner');
+  const standardCornerPressure = qz * standardCornerCoeff.gcp;
+  const standardCornerNetPressure = Math.abs(standardCornerPressure) + (qz * Math.abs(gcpi.positive));
+  
+  const standardCornerZones = [
+    { id: 'corner-std-nw', name: 'Northwest Corner', x: 0, y: 0 },
+    { id: 'corner-std-ne', name: 'Northeast Corner', x: length - cornerDim, y: 0 },
+    { id: 'corner-std-sw', name: 'Southwest Corner', x: 0, y: width - cornerDim },
+    { id: 'corner-std-se', name: 'Southeast Corner', x: length - cornerDim, y: width - cornerDim }
+  ];
+
+  standardCornerZones.forEach(corner => {
+    zones.push({
+      id: corner.id,
+      type: 'corner',
+      name: corner.name,
+      gcp: standardCornerCoeff.gcp,
+      area: cornerArea,
+      netPressure: standardCornerNetPressure,
+      location: {
+        x: corner.x,
+        y: corner.y,
+        width: cornerDim,
+        height: cornerDim
+      },
+      isZone1Prime: false,
+      description: 'Standard corner zone (Zone 1)',
+      asceReference: standardCornerCoeff.source
+    });
+  });
+
+  // Always create standard perimeter zone (Zone 2)
+  const perimeterCoeff = getZone1PrimePressureCoefficients(1.0, 0.5, effectiveWindArea, 'perimeter');
+  const perimeterPressure = qz * perimeterCoeff.gcp;
+  const perimeterNetPressure = Math.abs(perimeterPressure) + (qz * Math.abs(gcpi.positive));
+
+  zones.push({
+    id: 'perimeter-north',
+    type: 'perimeter',
+    name: 'North Perimeter',
+    gcp: perimeterCoeff.gcp,
+    area: (length - 2 * cornerDim) * perimeterWidth,
+    netPressure: perimeterNetPressure,
+    location: {
+      x: cornerDim,
+      y: 0,
+      width: length - 2 * cornerDim,
+      height: perimeterWidth
+    },
+    isZone1Prime: false,
+    description: 'Standard perimeter zone (Zone 2)',
+    asceReference: 'ASCE 7-22 Figure 26.11-1'
+  });
+
+  // Enhanced perimeter zones for highly elongated buildings (Zone 1' perimeter)
   if (zone1PrimeAnalysis.aspectRatio >= 3.0) {
-    const perimeterCoeff = getZone1PrimePressureCoefficients(
+    const enhancedPerimeterCoeff = getZone1PrimePressureCoefficients(
       zone1PrimeAnalysis.aspectRatio, zone1PrimeAnalysis.heightRatio, effectiveWindArea, 'perimeter'
     );
     
-    const perimeterPressure = qz * perimeterCoeff.gcp;
-    const perimeterNetPressure = perimeterPressure - (gcpi.positive * qz);
+    const enhancedPerimeterPressure = qz * enhancedPerimeterCoeff.gcp;
+    const enhancedPerimeterNetPressure = Math.abs(enhancedPerimeterPressure) + (qz * Math.abs(gcpi.positive));
 
-    // Enhanced perimeter zones
     zones.push({
       id: 'perimeter-north-prime',
       type: 'perimeter_prime',
       name: 'North Perimeter (Zone 1\')',
-      gcp: perimeterCoeff.gcp,
+      gcp: enhancedPerimeterCoeff.gcp,
       area: (length - 2 * cornerDim) * perimeterWidth,
-      netPressure: Math.abs(perimeterNetPressure),
+      netPressure: enhancedPerimeterNetPressure,
       location: {
         x: cornerDim,
         y: 0,
@@ -209,36 +273,7 @@ function createZone1PrimeZones(
       },
       isZone1Prime: true,
       description: 'Enhanced perimeter zone for elongated building',
-      asceReference: perimeterCoeff.source
-    });
-  }
-
-  // Standard perimeter zones (non-enhanced)
-  const standardPerimeterCoeff = getZone1PrimePressureCoefficients(
-    zone1PrimeAnalysis.aspectRatio, zone1PrimeAnalysis.heightRatio, effectiveWindArea, 'perimeter'
-  );
-  
-  if (zone1PrimeAnalysis.aspectRatio < 3.0) {
-    // Use standard perimeter for less elongated buildings
-    const perimeterPressure = qz * standardPerimeterCoeff.gcp;
-    const perimeterNetPressure = perimeterPressure - (gcpi.positive * qz);
-
-    zones.push({
-      id: 'perimeter-north',
-      type: 'perimeter',
-      name: 'North Perimeter',
-      gcp: standardPerimeterCoeff.gcp,
-      area: (length - 2 * cornerDim) * perimeterWidth,
-      netPressure: Math.abs(perimeterNetPressure),
-      location: {
-        x: cornerDim,
-        y: 0,
-        width: length - 2 * cornerDim,
-        height: perimeterWidth
-      },
-      isZone1Prime: false,
-      description: 'Standard perimeter zone',
-      asceReference: 'ASCE 7-22 Figure 26.11-1'
+      asceReference: enhancedPerimeterCoeff.source
     });
   }
 
@@ -248,7 +283,7 @@ function createZone1PrimeZones(
   );
   
   const fieldPressure = qz * fieldCoeff.gcp;
-  const fieldNetPressure = fieldPressure - (gcpi.positive * qz);
+  const fieldNetPressure = Math.abs(fieldPressure) + (qz * Math.abs(gcpi.positive));
   
   const fieldWidth = width - 2 * perimeterWidth;
   const fieldLength = length - 2 * perimeterWidth;
@@ -260,7 +295,7 @@ function createZone1PrimeZones(
       name: 'Field Zone',
       gcp: fieldCoeff.gcp,
       area: fieldLength * fieldWidth,
-      netPressure: Math.abs(fieldNetPressure),
+      netPressure: fieldNetPressure,
       location: {
         x: perimeterWidth,
         y: perimeterWidth,
@@ -293,7 +328,7 @@ function createStandardZones(
   // Standard corner zones
   const cornerCoeff = getZone1PrimePressureCoefficients(1.0, 0.5, effectiveWindArea, 'corner');
   const cornerPressure = qz * cornerCoeff.gcp;
-  const cornerNetPressure = cornerPressure - (gcpi.positive * qz);
+  const cornerNetPressure = Math.abs(cornerPressure) + (qz * Math.abs(gcpi.positive));
   
   const cornerArea = cornerDim * cornerDim;
   const cornerZones = [
@@ -310,7 +345,7 @@ function createStandardZones(
       name: corner.name,
       gcp: cornerCoeff.gcp,
       area: cornerArea,
-      netPressure: Math.abs(cornerNetPressure),
+      netPressure: cornerNetPressure,
       location: {
         x: corner.x,
         y: corner.y,
@@ -326,7 +361,7 @@ function createStandardZones(
   // Standard perimeter zones
   const perimeterCoeff = getZone1PrimePressureCoefficients(1.0, 0.5, effectiveWindArea, 'perimeter');
   const perimeterPressure = qz * perimeterCoeff.gcp;
-  const perimeterNetPressure = perimeterPressure - (gcpi.positive * qz);
+  const perimeterNetPressure = Math.abs(perimeterPressure) + (qz * Math.abs(gcpi.positive));
 
   zones.push({
     id: 'perimeter-north',
@@ -334,7 +369,7 @@ function createStandardZones(
     name: 'North Perimeter',
     gcp: perimeterCoeff.gcp,
     area: (length - 2 * cornerDim) * perimeterWidth,
-    netPressure: Math.abs(perimeterNetPressure),
+    netPressure: perimeterNetPressure,
     location: {
       x: cornerDim,
       y: 0,
@@ -349,7 +384,7 @@ function createStandardZones(
   // Field zone
   const fieldCoeff = getZone1PrimePressureCoefficients(1.0, 0.5, effectiveWindArea, 'field');
   const fieldPressure = qz * fieldCoeff.gcp;
-  const fieldNetPressure = fieldPressure - (gcpi.positive * qz);
+  const fieldNetPressure = Math.abs(fieldPressure) + (qz * Math.abs(gcpi.positive));
   
   const fieldWidth = width - 2 * perimeterWidth;
   const fieldLength = length - 2 * perimeterWidth;
@@ -361,7 +396,7 @@ function createStandardZones(
       name: 'Field Zone',
       gcp: fieldCoeff.gcp,
       area: fieldLength * fieldWidth,
-      netPressure: Math.abs(fieldNetPressure),
+      netPressure: fieldNetPressure,
       location: {
         x: perimeterWidth,
         y: perimeterWidth,

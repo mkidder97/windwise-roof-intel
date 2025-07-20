@@ -148,13 +148,10 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                     </div>
                   ))}
 
-                  {/* Zone 1 - Corner (Always show) */}
+                  {/* Zone 1 - Corner (Always show standard corner zone) */}
                   {(() => {
                     const standardCornerZone = zoneCalculationResults.zones.find(z => z.type === 'corner');
-                    const enhancedCornerZone = zoneCalculationResults.zones.find(z => z.type === 'corner_prime');
-                    const displayZone = standardCornerZone || enhancedCornerZone;
-                    
-                    if (!displayZone) return null;
+                    if (!standardCornerZone) return null;
                     
                     return (
                       <div className="p-4 border rounded-lg">
@@ -164,12 +161,12 @@ export const CalculationResults: React.FC<CalculationResultsProps> = ({
                             <Badge variant="default">Controlling</Badge>
                           )}
                         </div>
-                        <div className="text-2xl font-bold">{formatPressure(displayZone.netPressure)}</div>
+                        <div className="text-2xl font-bold">{formatPressure(standardCornerZone.netPressure)}</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          GCp = {displayZone.gcp.toFixed(2)}
+                          GCp = {standardCornerZone.gcp.toFixed(2)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          4 corners × {displayZone.area.toFixed(0)} sq ft each
+                          4 corners × {standardCornerZone.area.toFixed(0)} sq ft each
                         </div>
                       </div>
                     );
