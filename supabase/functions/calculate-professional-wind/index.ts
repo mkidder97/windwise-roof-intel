@@ -107,43 +107,96 @@ serve(async (req) => {
       corner: perimeterWidth * perimeterWidth
     }
 
-    // STEP 5: Get Area-Dependent Pressure Coefficients
+    // STEP 5: Get Area-Dependent Pressure Coefficients with Interpolation
     const areaForLookup = Math.max(...Object.values(effectiveAreas))
     
+    // Get pressure coefficients with proper interpolation
     const { data: coeffData } = await supabase
       .from('pressure_coefficients_asce')
-      .select('gcp_field, gcp_perimeter, gcp_corner')
+      .select('gcp_field, gcp_perimeter, gcp_corner, effective_wind_area_min, effective_wind_area_max')
       .eq('asce_edition', request.asceEdition)
       .eq('building_type', request.buildingClassification)
       .eq('roof_type', 'low_slope')
-      .lte('effective_wind_area_min', areaForLookup)
-      .gte('effective_wind_area_max', areaForLookup)
-      .order('effective_wind_area_min', { ascending: false })
-      .limit(1)
+      .order('effective_wind_area_min', { ascending: true })
 
-    const coeffs = coeffData?.[0] || { gcp_field: -1.0, gcp_perimeter: -2.0, gcp_corner: -3.0 }
+    // Implement proper pressure coefficient interpolation
+    const interpolateCoefficient = (area: number, coeffData: any[]) => {
+      if (!coeffData || coeffData.length === 0) {
+        return { gcp_field: -1.0, gcp_perimeter: -2.0, gcp_corner: -3.0 };
+      }
+
+      // Find the appropriate range for interpolation
+      let lowerBound = null;
+      let upperBound = null;
+
+      for (const coeff of coeffData) {
+        if (area >= coeff.effective_wind_area_min && area <= coeff.effective_wind_area_max) {
+          return coeff; // Exact match
+        }
+        if (area > coeff.effective_wind_area_max) {
+          lowerBound = coeff;
+        }
+        if (area < coeff.effective_wind_area_min && !upperBound) {
+          upperBound = coeff;
+          break;
+        }
+      }
+
+      // Use bounds or defaults if no interpolation possible
+      if (lowerBound && upperBound) {
+        // Linear interpolation
+        const ratio = (area - lowerBound.effective_wind_area_max) / 
+                     (upperBound.effective_wind_area_min - lowerBound.effective_wind_area_max);
+        
+        return {
+          gcp_field: lowerBound.gcp_field + ratio * (upperBound.gcp_field - lowerBound.gcp_field),
+          gcp_perimeter: lowerBound.gcp_perimeter + ratio * (upperBound.gcp_perimeter - lowerBound.gcp_perimeter),
+          gcp_corner: lowerBound.gcp_corner + ratio * (upperBound.gcp_corner - lowerBound.gcp_corner)
+        };
+      }
+
+      return lowerBound || upperBound || { gcp_field: -1.0, gcp_perimeter: -2.0, gcp_corner: -3.0 };
+    };
+
+    const coeffs = interpolateCoefficient(areaForLookup, coeffData)
 
     console.log('Pressure coefficients:', coeffs)
 
-    // STEP 6: Get Internal Pressure Coefficient
-    let gcpi = 0
-    if (request.includeInternalPressure) {
-      const { data: internalData } = await supabase
-        .from('internal_pressure_coefficients')
-        .select('gcpi_positive')
-        .eq('building_classification', request.buildingClassification)
-        .single()
-      
-      gcpi = internalData?.gcpi_positive || 0.18
-    }
+    // STEP 6: Get Internal Pressure Coefficients (Both Positive and Negative)
+    const getInternalPressure = (enclosureType: string) => {
+      switch(enclosureType) {
+        case 'enclosed': return { pos: 0.18, neg: -0.18 };
+        case 'partially_enclosed': return { pos: 0.55, neg: -0.55 };
+        case 'open': return { pos: 0.0, neg: 0.0 };
+        default: return { pos: 0.18, neg: -0.18 };
+      }
+    };
 
-    // STEP 7: Calculate Professional Zone Pressures
-    // Formula: P = qz × (|GCp| + GCpi) - VALIDATED against Miami PE project
+    const internalPressure = getInternalPressure(request.buildingClassification);
+    
+    // STEP 7: Calculate Pressure Using Proper Load Combination Method
+    const calculatePressure = (qz: number, gcp: number, gcpi_pos: number, gcpi_neg: number) => {
+      const case1 = Math.abs(qz * (gcp - gcpi_pos));
+      const case2 = Math.abs(qz * (gcp - gcpi_neg)); 
+      return {
+        case1_pressure: case1,
+        case2_pressure: case2,
+        controlling_pressure: Math.max(case1, case2),
+        controlling_case: case1 > case2 ? 'positive_internal' : 'negative_internal'
+      };
+    };
+
+    // Calculate pressures for each zone with proper load combinations
+    const fieldPrimeCalc = calculatePressure(velocityPressure, coeffs.gcp_field, internalPressure.pos, internalPressure.neg);
+    const fieldCalc = calculatePressure(velocityPressure, coeffs.gcp_field * 1.4, internalPressure.pos, internalPressure.neg);
+    const perimeterCalc = calculatePressure(velocityPressure, coeffs.gcp_perimeter, internalPressure.pos, internalPressure.neg);
+    const cornerCalc = calculatePressure(velocityPressure, coeffs.gcp_corner, internalPressure.pos, internalPressure.neg);
+
     const pressures = {
-      field_prime: velocityPressure * (Math.abs(coeffs.gcp_field) + gcpi),      // Zone 1'
-      field: velocityPressure * (Math.abs(coeffs.gcp_field * 1.4) + gcpi),     // Zone 1 (edge field)
-      perimeter: velocityPressure * (Math.abs(coeffs.gcp_perimeter) + gcpi),   // Zone 2
-      corner: velocityPressure * (Math.abs(coeffs.gcp_corner) + gcpi)          // Zone 3
+      field_prime: fieldPrimeCalc.controlling_pressure,    // Zone 1'
+      field: fieldCalc.controlling_pressure,               // Zone 1 (edge field)
+      perimeter: perimeterCalc.controlling_pressure,       // Zone 2
+      corner: cornerCalc.controlling_pressure              // Zone 3
     }
 
     const maxPressure = Math.max(...Object.values(pressures))
@@ -163,8 +216,8 @@ serve(async (req) => {
         gcp_field_interpolated: coeffs.gcp_field,
         gcp_perimeter_interpolated: coeffs.gcp_perimeter,
         gcp_corner_interpolated: coeffs.gcp_corner,
-        gcpi_positive: gcpi,
-        gcpi_negative: -gcpi,
+        gcpi_positive: internalPressure.pos,
+        gcpi_negative: internalPressure.neg,
         pressure_field_prime: pressures.field_prime,
         pressure_field: pressures.field,
         pressure_perimeter: pressures.perimeter,
@@ -201,7 +254,8 @@ serve(async (req) => {
           field: coeffs.gcp_field * 1.4,
           perimeter: coeffs.gcp_perimeter,
           corner: coeffs.gcp_corner,
-          internal: gcpi
+          internal_positive: internalPressure.pos,
+          internal_negative: internalPressure.neg
         },
         pressures,
         maxPressure,
