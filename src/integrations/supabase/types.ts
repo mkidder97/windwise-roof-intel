@@ -586,6 +586,81 @@ export type Database = {
           },
         ]
       }
+      external_data_sources: {
+        Row: {
+          api_endpoint: string
+          created_at: string | null
+          id: string
+          rate_limits: Json | null
+          response_format: Json | null
+          service_name: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          api_endpoint: string
+          created_at?: string | null
+          id?: string
+          rate_limits?: Json | null
+          response_format?: Json | null
+          service_name: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          api_endpoint?: string
+          created_at?: string | null
+          id?: string
+          rate_limits?: Json | null
+          response_format?: Json | null
+          service_name?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      geocoding_cache: {
+        Row: {
+          address: string
+          components: Json | null
+          confidence: number | null
+          country_code: string | null
+          created_at: string | null
+          expires_at: string | null
+          formatted_address: string | null
+          id: string
+          latitude: number
+          longitude: number
+          timezone_name: string | null
+        }
+        Insert: {
+          address: string
+          components?: Json | null
+          confidence?: number | null
+          country_code?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          formatted_address?: string | null
+          id?: string
+          latitude: number
+          longitude: number
+          timezone_name?: string | null
+        }
+        Update: {
+          address?: string
+          components?: Json | null
+          confidence?: number | null
+          country_code?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          formatted_address?: string | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          timezone_name?: string | null
+        }
+        Relationships: []
+      }
       geometry_templates: {
         Row: {
           building_type: string | null
